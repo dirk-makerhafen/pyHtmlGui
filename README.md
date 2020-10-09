@@ -1,11 +1,54 @@
-call python from js:    
-    pyHtmlGui.call({{ py(this.func)}}, 1,2,3 ) 
-this is component instance
+## PyHtmlGui
 
-call javascrip from Component
+A python library for building user interfaces
+
+### Example
+
+```python
+import os, threading, time
+from pyHtmlGui import pyHtmlGui, pyHtmlGuiComponent
+from pyHtmlGui.observable.observable import Observable
+
+class Example1_App(Observable):
+    def __init__(self):
+        super().__init__()
+        self.current_timestamp = None
+        self.updateThread = threading.Thread(target=self._update_thread)
+        self.updateThread.start()
+        
+    def _update_thread(self):
+        while True:
+            self.current_timestamp = time.time()
+            self.notifyObservers()
+            time.sleep(1)
+
+
+
+class Example1_Gui(pyHtmlGuiComponent):
+    TEMPLATE_STR = '''
+        <p style="text-align:center"> {{ this.observedObject.current_timestamp }} </p>
+    '''
+
+if __name__ == "__main__":
+    example1_App = Example1_App()
+    gui = pyHtmlGui(
+        observedObject      = example1_App,
+        guiComponentClass   = Example1_Gui,
+    )
+    gui.run()
+```
+                                                                                        
+
+#### Call python function from Js Frontend
+    pyHtmlGui.call({{ py(this.func)}}, 1,2,3 ) 
+#### Call JS function from Python GUI class    
     $this is replace with jquery selector for current component
     js = '$this.find( ".row" ).css( "background-color", "blue" );'
     self.javascript_call(js)
+
+this is component instance
+
+call javascrip from Component
 
     jsf = 'return 2+2;'
     self.javascript_call(jsf, callback=lambda result:print(result) )

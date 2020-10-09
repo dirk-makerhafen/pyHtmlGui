@@ -41,6 +41,7 @@ class Example1_Gui(pyHtmlGuiComponent):
     def update_frontend_element(self):
         self.javascript_call('$this.find( ".colored_element" ).css( "background-color", "blue" );')
 
+
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 

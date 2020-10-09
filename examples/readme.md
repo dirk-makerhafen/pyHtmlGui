@@ -12,6 +12,9 @@ example3
 example4
    example3 extended to a seconds view that shows how to observe a list or dict of backend items
    
+example5
+   example4, but with another Observable implementation, showing how to use your own.
+   
    
    
    
