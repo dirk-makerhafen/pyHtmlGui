@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <script>
+
+            let csrf_token = "{{ csrf_token }}";
+            let start_size = {{ start_size }};
+            let start_position = {{ start_position }};
+            let electron_ipc = null;
+
+            if(typeof require !== "undefined"){
+                window.nodeRequire = require;
+                delete window.require;
+                delete window.exports;
+                delete window.module;
+                electron_ipc = nodeRequire('electron').ipcRenderer;
+            }
+
+            pyhtmlgui = {
+                _call_number: 0,
+                _call_return_callbacks: {},
+
+                call: function (python_functioncall_id, ...args){
+                    let python_call_object = null;
+                    if( args.length === 0 ){
+                        python_call_object = pyhtmlgui._create_python_call_obj("call_python_function", [python_functioncall_id]);
+                    }else{
+                        python_call_object = pyhtmlgui._create_python_call_obj("call_python_function_with_args", [python_functioncall_id, args]);
+                    }
+                    pyhtmlgui._websocket.send(pyhtmlgui._toJSON(python_call_object));
+                    return new Promise(function(resolve) {
+                        pyhtmlgui._call_return_callbacks[python_call_object.call] = resolve;
+                    });
+                },
+
+                _init: function() {
+                    if(start_size     != null){ window.resizeTo(  start_size[0],     start_size[1]);}
+                    if(start_position != null){ window.moveTo(start_position[0], start_position[1]);}
+
+                    pyhtmlgui.websocket_addr = (window.location.origin + '/ws').replace('http', 'ws');
+                    pyhtmlgui.websocket_addr += ('?token=' + csrf_token);
+
+                    document.addEventListener("DOMContentLoaded", function(event) {
+                        pyhtmlgui._connect();
+                    });
+                },
+
+                _connect: function() {
+                    pyhtmlgui._websocket = new WebSocket(pyhtmlgui.websocket_addr);
+
+                    pyhtmlgui._websocket.onopen = function() {
+                        let python_call_object = pyhtmlgui._create_python_call_obj("frontend_ready", [], skip_results = true);
+                        pyhtmlgui._websocket.send(pyhtmlgui._toJSON(python_call_object));
+                    };
+
+                    pyhtmlgui._websocket.onmessage = function (e) {
+                        let message = JSON.parse(e.data);
+                        if(message.hasOwnProperty('call') ) {
+                            if(message.name.startsWith("electron.")){
+                                if(electron_ipc === null){
+                                    console.error("No electron IPC available, are you sure i am launched in electron?");
+                                }else{
+                                    electron_ipc.invoke('call', message.name.substring(9), message.args).then(
+                                        function(return_val){
+                                            if(message.skip_results !== true){
+                                                return_data = {'return': message.call };
+                                                if(return_val.value !== undefined){  return_data["value"] = return_val.value; }
+                                                if(return_val.error !== undefined){
+                                                    return_data["error"] = return_val.error;
+                                                    console.error( return_val.error);
+                                                }
+                                                pyhtmlgui._websocket.send(pyhtmlgui._toJSON(return_data));
+                                            }
+                                        }
+                                    );
+                                }
+                            }else{
+                                let name_parts = message.name.split(".");
+                                let function_name = name_parts.pop()
+                                let obj = window;
+                                for(var i = 0; i < name_parts.length; i++) {
+                                    obj = obj[name_parts[i]];
+                                }
+                                let return_data = null;
+                                if(obj[function_name] === undefined){
+                                    return_data = {'return': message.call, 'error': "No javascript function called '"+message.name+"'"};
+                                    console.error(return_data.error);
+                                }else{
+                                    try {
+                                      return_data =  {'return': message.call, 'value':  obj[function_name](...message.args)};
+                                    }catch (e) {
+                                      return_data =  {'return': message.call, 'error': "Failed to execute '"+message.name+"'\n" + e.stack }
+                                      console.error(return_data.error);
+                                    }
+                                }
+                                if(message.skip_results !== true){
+                                    pyhtmlgui._websocket.send(pyhtmlgui._toJSON(return_data));
+                                }
+
+                            }
+                        } else if(message.hasOwnProperty('return')) {
+                            // Python returning a value to us
+                            if(message['return'] in pyhtmlgui._call_return_callbacks) {
+                                pyhtmlgui._call_return_callbacks[message['return']](message.value);
+                                delete pyhtmlgui._call_return_callbacks[message['return']];
+                            }
+                        } else {
+                            throw 'Invalid message ' + message;
+                        }
+                    };
+
+                    pyhtmlgui._websocket.onerror = function (err){
+                        console.error("Socket encountered error:" + err.message, "Closing socket");
+                        pyhtmlgui._websocket.close();
+                    }
+
+                    pyhtmlgui._websocket.onclose = function (e){
+                        console.warn("Socket is closed, Reconnect in 1 second", e.reason);
+                        setTimeout(function (){
+                            pyhtmlgui._connect();
+                        }, 1000);
+                    }
+
+                },
+
+                _create_python_call_obj: function(py_function_name, args, skip_results) {
+                    let arg_array = [];
+                    for(let i = 0; i < args.length; i++){
+                        arg_array.push(args[i]);
+                    }
+
+                    let call_id = (pyhtmlgui._call_number += 1);
+                    let to_delete = call_id - 100;  // remove old function references, this may not be needed, because it should be removed on return from python, but in case of error it may stay forever otherwise
+                    delete pyhtmlgui._call_return_callbacks[to_delete];
+
+                    let pycall =  {'call': call_id, 'name': py_function_name, 'args': arg_array};
+                    if (skip_results === true){
+                        pycall['skip_results'] = true;
+                    }
+                    return pycall;
+                },
+
+                _toJSON: function(obj) {
+                    return JSON.stringify(obj, (k, v) => v === undefined ? null : v);
+                },
+
+                _getUrlParameter: function(sParam) {
+                    var sPageURL = window.location.search.substring(1), sURLVariables = sPageURL.split('&'), sParameterName, i;
+                    for (i = 0; i < sURLVariables.length; i++) {
+                        sParameterName = sURLVariables[i].split('=');
+                        if (sParameterName[0] === sParam) {
+                            return sParameterName[1] === undefined ? true : decodeURIComponent(sParameterName[1]);
+                        }
+                    }
+                },
+
+                insert_element: function (elementId, index, content) {
+                    newElement = new DOMParser().parseFromString(content, "text/html").body.firstChild;
+                    parentElement = document.getElementById(elementId);
+                    parentElement.insertBefore(newElement , parentElement.children[index]);
+                    return true;
+
+                },
+                update_element: function(elementId, content) {
+                    document.getElementById(elementId).innerHTML = content;
+                    return true;
+                },
+                remove_element: function(elementId) {
+                    document.getElementById(elementId).remove();
+                    return True;
+                },
+                eval_script: function(script, args) {
+                    let f = undefined;
+                    eval('f = function(args){' + script + '}');
+                    return f(args);
+                },
+                debug_msg: function (msg) {
+                    console.error(msg);
+                    return True;
+                },
+
+            }
+
+            pyhtmlgui._init();
+
+        </script>
+
+        {% block head_scripts %}{% endblock %}
+
+        {% block head_css %}{% endblock %}
+
+        {% block head_meta %}{% endblock %}
+
+    </head>
+
+    <body id="pyHtmlGuiBody">
+
+    </body>
+
+</html>

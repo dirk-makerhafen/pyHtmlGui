@@ -6,8 +6,7 @@ A python library for building user interfaces
 
 ```python
 import os, threading, time
-from pyHtmlGui import pyHtmlGui, pyHtmlGuiComponent
-from pyHtmlGui.observable.observable import Observable
+from pyHtmlGui import pyhtmlgui, pyhtmlview, Observable
 
 class Example1_App(Observable):
     def __init__(self):
@@ -24,14 +23,14 @@ class Example1_App(Observable):
 
 
 
-class Example1_Gui(pyHtmlGuiComponent):
+class Example1_Gui(pyhtmlview):
     TEMPLATE_STR = '''
         <p style="text-align:center"> {{ this.observedObject.current_timestamp }} </p>
     '''
 
 if __name__ == "__main__":
     example1_App = Example1_App()
-    gui = pyHtmlGui(
+    gui = pyhtmlgui(
         observedObject      = example1_App,
         guiComponentClass   = Example1_Gui,
     )
@@ -40,7 +39,7 @@ if __name__ == "__main__":
                                                                                         
 
 #### Call python function from Js Frontend
-    pyHtmlGui.call({{ py(this.func)}}, 1,2,3 ) 
+    pyhtmlgui.call({{ py(this.func)}}, 1,2,3 ) 
 #### Call JS function from Python GUI class    
     $this is replace with jquery selector for current component
     js = '$this.find( ".row" ).css( "background-color", "blue" );'
@@ -82,9 +81,20 @@ have you internal objects extend Observable, and call self.notifyObservers() whe
 
 import pyHtmlGui.observable.Observablue
 
-class yourclass(Observablue):
+class yourclass(Observablue):__
     def __init__(self):
         self.value = 0
     def set_value(value):
         self.value = value
         self.notifyObservers()
+
+
+Launch modes:
+ 1) Launch from python:
+    a) python app starts server and opens Browser or Electron 
+    b) python app starts server, browser or Electron must be started manually
+       
+ 2) Launch from electron:
+    
+ 
+    

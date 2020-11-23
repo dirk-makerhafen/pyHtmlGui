@@ -7,9 +7,9 @@ example2
 
 example3
     example2 extended with an frontend javascript animation that gets triggered 
-    by the backend from time to time
+    by the backepnd from time to time
     
-example4
+examle4
    example3 extended to a seconds view that shows how to observe a list or dict of backend items
    
 example5

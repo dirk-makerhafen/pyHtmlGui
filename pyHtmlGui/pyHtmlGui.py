@@ -1,313 +1,236 @@
-import os, random, json, sys
-import queue
+import logging
+import os, json, sys
 import threading
 import jinja2
-import gevent
 import bottle
 import bottle_websocket
 import uuid
 import time
-import weakref
+from gevent import pywsgi
+from geventwebsocket.handler import WebSocketHandler
+from geventwebsocket.logging import create_logger
 
-from .browsers import browsers
-from .lib import WeakFunctionReferences
+from .lib import Browser
+from .pyhtmlgui_instance import PyHtmlGuiInstance
 
-class pyHtmlGui():
-
+class PyHtmlGui():
     def __init__(self,
-                 guiComponentClass,         # A class that Inherits from Component
-                 observedObject,            # Some object (eg. main program class instance), passed to guiComponentClass as obj on launch
-                 static_dir = "",                # static files and templates go here
-                 template_dir = "",              # main.html and other html goes here
-                 exit_callback = None,      # If gui disconnects call this
-                 main_html = "pyHtmlGuiBase.html",   # pyHtmlGuiBase in pyHtmlGui static dir, or custom file in static_dir
+                 appInstance,               # Some object (eg. main program class instance), passed to appViewClass as obj on launch
+                 appViewClass,              # A class that Inherits from PyHtmlView
+                 static_dir = "",           # static files, css, img go here
+                 template_dir = "",         # main.html and other html goes here
+                 electron_app_dir=None,     # in case we use electron, this is the electron.js file we launch, default file is in pyHtmlGui/assets/electron/main.py
+                 main_html="pyHtmlGuiBase.html",   # pyHtmlGuiBase in pyHtmlGui/assets/templates, or custom file in app templates dir
+                 on_frontend_ready=None,    # If gui connects call this
+                 on_frontend_exit = None,   # If gui disconnects call this
                  size = (800, 600),         # window size
                  position = None,           # window position
-                 mode = "chrome",
-                 executable = None,
-                 electron_main_js = None,
-                 shared_secret = None,
+                 mode = "chrome",           # chrome | electron
+                 executable = None,         # path to chrome/electron executable, if needed
+                 listen_host = "127.0.0.1",
+                 listen_port = 8000,
+                 shared_secret="",  # use "" to automatically generate a uid internally, use None to disable token
+                 auto_reload = False,       # for development, monitor files and reload while app is running
+                 single_instance = True    # create only one instance and share it between all connected websockets, this is the default, so there is only one instance of appViewClass shared by all connected frntends
          ):
-
-        self.guiComponentClass = guiComponentClass
-        self.objInstance = observedObject
+        self.appViewClass = appViewClass
+        self.appInstance = appInstance
         self.static_dir = static_dir
         self.template_dir = template_dir
-        self.exit_callback = exit_callback
+        self.on_frontend_ready_callback = on_frontend_ready
+        self.on_frontend_exit_callback = on_frontend_exit
         self.main_html = main_html
-        self.mode = mode
-        self.executable = executable
-        self.electron_main_js = electron_main_js
-
-        self.function_references = WeakFunctionReferences()
-        self._call_return_values = {}
-        self._call_return_callbacks = {}
-        self._exposed_py_functions = {}  # exposed python functions
-        self._exposed_js_functions = []  # exposed javascript functions
-        self._call_number = 0
-        self._websockets = []
-
-        self.host = "127.0.0.1"
-        self.port = 8000
-        self._cmdline_args = ['--no-sandbox', '--disable-http-cache']
-        if shared_secret is None:
-            self.token_launch = "%s" % uuid.uuid4()
-        else:
-            self.token_launch = shared_secret
-        self.token_cookie = "%s" % uuid.uuid4()
-        self.token_csrf   = "%s" % uuid.uuid4()
         self.size = size
         self.position = position
+        self.mode = mode
+        self.executable = executable
+        self.electron_app_dir = electron_app_dir
+        if shared_secret == "":
+            self.shared_secret = "%s" % uuid.uuid4()
+        elif shared_secret == None:
+            self.shared_secret = None
+        else:
+            self.shared_secret = shared_secret
+        self.listen_host = listen_host
+        self.listen_port = listen_port
+        self.auto_reload = auto_reload
+        self.single_instance = single_instance
 
         if getattr(sys, 'frozen', False) == True:  # check if we are bundled by pyinstaller
-            self.pyHtmlGui_static_dir =  os.path.join(sys._MEIPASS, "pyHtmlGui", "static")
+            self.pyHtmlGui_template_dir =  os.path.join(sys._MEIPASS, "pyHtmlGui", "assets", "templates")
+            self.pyHtmlGui_electron_dir =  os.path.join(sys._MEIPASS, "pyHtmlGui", "assets", "electron")
+            self.template_dir =  os.path.join(sys._MEIPASS, self.template_dir)
+            self.static_dir =  os.path.join(sys._MEIPASS, self.static_dir)
+            if self.electron_app_dir is None:
+                self.electron_app_dir = self.pyHtmlGui_electron_dir
+            else:
+                self.electron_app_dir = os.path.join(sys._MEIPASS, self.electron_app_dir)
+            self.root_dir = sys._MEIPASS
+            self.auto_reload = False
         else:
-            self.pyHtmlGui_static_dir =  os.path.join(os.path.dirname(os.path.realpath(__file__)), "static")
-        self.pyHtmlGui_js = open(os.path.join(self.pyHtmlGui_static_dir, "pyHtmlGui.js"), "r").read()
-        self._pyHtmlGui_js_cache = None
+            self.pyHtmlGui_template_dir =  os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "templates")
+            print("here", self.pyHtmlGui_template_dir)
+            self.pyHtmlGui_electron_dir =  os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "electron")
+            self.template_dir = os.path.join(os.path.abspath(os.path.dirname(os.path.realpath(sys.argv[0]))), self.template_dir)
+            self.static_dir = os.path.join(os.path.abspath(os.path.dirname(os.path.realpath(sys.argv[0]))), self.static_dir)
+            if self.electron_app_dir is None:
+                self.electron_app_dir = self.pyHtmlGui_electron_dir
+            else:
+                self.electron_app_dir = os.path.join(os.path.abspath(os.path.dirname(os.path.realpath(sys.argv[0]))), self.electron_app_dir)
+            self.root_dir   = os.path.join(os.path.abspath(os.path.dirname(os.path.realpath(sys.argv[0]))))
 
-        @self.expose
-        def call_python_function_with_args(callback_id, args):
-            print("call_python_function_with_args", callback_id)
-            self.function_references.get(callback_id)(*args)
+        self._templateLoader = jinja2.FileSystemLoader(searchpath=[self.pyHtmlGui_template_dir, self.template_dir])
+        self._templateEnv    = jinja2.Environment(loader=self._templateLoader)
 
-        @self.expose
-        def call_python_function(callback_id):
-            print("call_python_function", callback_id)
-            self.function_references.get(callback_id)()
+        self._gui_instances = []
 
-        @self.expose
-        def frontend_ready(exposed_js_functions):
-            self._exposed_js_functions = exposed_js_functions
-
-        def get_function_callback_id(function):
-            if type(function) == jinja2.runtime.Undefined:
-                raise Exception("Undefined python method in script: '%s'" % function._undefined_name)
-            return self.function_references.add(function)
-
-        templateLoader = jinja2.FileSystemLoader(searchpath=[self.template_dir])
-        self._templateEnv = jinja2.Environment(loader=templateLoader)
-        templateLoaderStatic = jinja2.FileSystemLoader(searchpath=[self.static_dir, self.pyHtmlGui_static_dir])
-        self._templateEnvStatic = jinja2.Environment(loader=templateLoaderStatic)
-        self._templateEnv.globals['py'] = get_function_callback_id
-
-        self._event_queue = queue.Queue(500)
-        self._children = weakref.WeakSet()
-
-        self.gui_instance = guiComponentClass(self.objInstance, self)
-
-        self._event_thread = threading.Thread(target=self._event_thread_function)
-        self._event_thread .daemon = True
-        self._event_thread .start()
+        self._token_cookie = "%s" % uuid.uuid4()
+        self._token_csrf   = "%s" % uuid.uuid4()
 
         bottle.route("/")(self._main_html)
-        bottle.route("/pyHtmlGui.js")(self._pyHtmlGui_js)
         bottle.route("/static/<path:path>")(self._static)
-        bottle.route("/pyHtmlGui", apply=[bottle_websocket.websocket])(self._websocket)
+        bottle.route("/ws", apply=[bottle_websocket.websocket])(self._websocket)
+        self._browser = None
+        self._server = MyWebSocketServer(host=self.listen_host, port=self.listen_port)
 
-    def run(self, startFrontend = False, block=True):
-        if startFrontend is True:
-            self.show()
-
-        def _run():
-            return bottle.run(
-                host  = self.host,
-                port  = self.port,
-                server= bottle_websocket.GeventWebSocketServer,
-                quiet = False)
-        if block is True:
-            _run()
-        else:
-            t = threading.Thread(target=_run)
-            t.daemon = True
+        self._file_monitoring = {}
+        if self.auto_reload is True:
+            t = threading.Thread(target=self._monitoring_thread, daemon=True)
             t.start()
 
-    def show(self):
-        if self.executable is not None:
-            browsers.set_path(self.mode, self.executable)
 
-        start_url = "%s:%s?token=%s" % (self.host, self.port, self.token_launch)
-        options = {
-            "mode"          : self.mode,
-            "cmdline_args"  : self._cmdline_args,
-        }
-        if self.electron_main_js is not None:
-            options["main_js"] = os.path.abspath(os.path.join(self.static_dir, self.electron_main_js))
-            options["main_js_argv"] = [os.path.abspath(self.static_dir) ]
-        browsers.open(start_url, options)
+    def start(self, show_frontend = False, block=True):
+        if show_frontend is True:
+            self.show()
 
-    # Expose decorator makes py function available in js
-    def expose(self, name_or_function=None):
-        # Deal with '@pyHtmlGui.expose()' - treat as '@pyHtmlGui.expose'
-        if name_or_function is None:
-            return self.expose
-
-        if type(name_or_function) == str:   # Called as '@peakt.expose("my_name")'
-            name = name_or_function
-            def decorator(function):
-                self._expose(name, function)
-                return function
-            return decorator
+        if block is True:
+            self._server.run(bottle.default_app())
         else:
-            function = name_or_function
-            self._expose(function.__name__, function)
-            return function
+            t = threading.Thread(target=self._server.run, args=[bottle.default_app()], daemon=True)
+            t.start()
 
-    def _expose(self, name, function):
-        msg = 'Already exposed function with name "%s"' % name
-        assert name not in self._exposed_py_functions, msg
-        self._exposed_py_functions[name] = function
-        self._pyHtmlGui_js_cache = None
+    def stop(self):
+        try:
+            self._server.server.stop()
+        except:
+            pass
 
-
-    def _event_thread_function(self):
-        while True:
-            event_data  = self._event_queue.get()
-            if event_data[0] == "render":
-                event, target_id, obj_to_render = event_data
-                html = obj_to_render._template.render({"this":obj_to_render})
-                html = html.replace("$this", '$("#%s")' % obj_to_render.uid)
-                print("render",target_id, html)
-                self._javascript_call("set_element", [target_id,html])
-
-            elif event_data[0] == "javascript_call":
-                event, name, args, result_callback =  event_data
-                r = self._javascript_call(name, args)
-                if result_callback is not None:
-                    r(callback=result_callback)
-
-            else:
-                raise Exception("Unkown pyHtmlGui event '%s'" % event_data[0])
-
-    # Call a Javascript function
-    def _javascript_call(self, name, args):
-        if name not in self._exposed_js_functions:
-            raise Exception("Javascript function '%s' is not known to python code, did you epose it?" % name)
-        call_object = self._javascript_call_create_callobject(name, args)
-        for ws in self._websockets:
-            self._websocket_repeated_send(ws, json.dumps(call_object, default=lambda o: None))    #
-        return self._javascript_call_create_resultobject(call_object)
-
-    def _javascript_call_create_callobject(self, name, args):
-        self._call_number += 1
-        call_id = self._call_number + random.random()
-        r = {'call': call_id, 'name': name, 'args': args}
-        return r
-
-    def _javascript_call_create_resultobject(self, call):
-        call_id = call['call']
-        def return_func(callback=None):
-            if callback is not None:
-                self._call_return_callbacks[call_id] = callback
-            else:
-                for w in range(10000):
-                    if call_id in self._call_return_values:
-                        return self._call_return_values.pop(call_id)
-                    gevent.sleep(0.001)
-        return return_func
-
+    def show(self):
+        env = None
+        if self.mode == "electron":
+            args = [ self.electron_app_dir ]
+            env = os.environ.copy()
+            env.update({
+                "PYHTMLGUI_HOST" : self.listen_host,
+                "PYHTMLGUI_PORT" : "%s" % self.listen_port,
+                "PYHTMLGUI_SECRET" : self.shared_secret,
+            })
+        else:
+            args = ["%s:%s" % (self.listen_host, self.listen_port)]
+            if self.shared_secret is not None:
+                args[0] = "%s?token=%s" % (args[0], self.shared_secret)
+        if self._browser is None:
+            self._browser = Browser(self.mode, self.executable)
+        self._browser.open(args, env = env)
 
     # /main.html
     def _main_html(self):
-        if bottle.request.query.token != self.token_launch:
+        if self.shared_secret is not None and bottle.request.query.token != self.shared_secret:
             return bottle.HTTPResponse(status=403)
-        #self.token_launch = "%s" % uuid.uuid4()
-
-        template = self._templateEnvStatic.get_template(self.main_html)
+        template = self._templateEnv.get_template(self.main_html)
         response = bottle.HTTPResponse(template.render({
-            "gui_instance" : self.gui_instance,
-            "csrf_token"   : self.token_csrf,
+            "csrf_token"    : self._token_csrf,
+            "start_size"    : json.dumps(self.size),
+            "start_position": json.dumps(self.position),
         }))
-
         response.set_header('Cache-Control', 'no-store')
-        response.set_header('Set-Cookie', 'token=%s' % self.token_cookie)
+        response.set_header('Set-Cookie', 'token=%s' % self._token_cookie)
         return response
-
-    # /pyHtmlGui.js
-    def _pyHtmlGui_js(self):
-        if bottle.request.get_cookie("token") != self.token_cookie:
-            return bottle.HTTPResponse(status=403)
-
-        start_geometry = {
-            'default': { 'size': self.size, 'position':self.position },
-            'pages': {}
-        }
-        if self._pyHtmlGui_js_cache is None:
-            self._pyHtmlGui_js_cache = self.pyHtmlGui_js.replace('/** _py_functions **/', '_py_functions: %s,' % list(self._exposed_py_functions.keys()))
-            self._pyHtmlGui_js_cache = self._pyHtmlGui_js_cache.replace('/** _start_geometry **/', '_start_geometry: %s,' % json.dumps(start_geometry, default=lambda o: None))
-
-        bottle.response.content_type = 'application/javascript'
-        bottle.response.set_header('Cache-Control', 'no-store')
-        return self._pyHtmlGui_js_cache
 
     # /static/<path>/<path>
     def _static(self, path):
-        if bottle.request.get_cookie("token") != self.token_cookie:
+        if bottle.request.get_cookie("token") != self._token_cookie:
             return bottle.HTTPResponse(status=403)
-
         response = bottle.static_file(path, root=self.static_dir)
-        #response.set_header('Cache-Control', 'no-store')
         response.set_header("Cache-Control", "public, max-age=60")
         return response
 
-    # /pyHtmlGui
+    # /ws
     def _websocket(self, ws):
-        if bottle.request.headers.get("Origin") != "http://%s:%s" % (self.host, self.port):
+        if bottle.request.headers.get("Origin") != "http://%s:%s" % (self.listen_host, self.listen_port):
             return bottle.HTTPResponse(status=403)
-        if bottle.request.get_cookie("token") != self.token_cookie:
+        if bottle.request.get_cookie("token") != self._token_cookie:
             return bottle.HTTPResponse(status=403)
-        if bottle.request.query.token != self.token_csrf:
+        if bottle.request.query.token != self._token_csrf:
             return bottle.HTTPResponse(status=403)
 
-        self._websockets += [ws,]
+        websocketInstance = WebsocketInstance(ws)
+        instance = self._get_gui_instance()
+        instance.websocket_loop(websocketInstance) # loop while connected
+        self._release_gui_instance(instance)
 
-        while True:
-            msg = ws.receive()
-            if msg is not None:
-                message = json.loads(msg)
-                gevent.spawn(self._websocket_process_message, message, ws).run()
-            else:
-                self._websockets.remove(ws)
-                break
+    def _on_frontend_ready(self, pyHtmlGuiInstance): # called by pyHtmlGuiInstance on frontend ready
+        if self.on_frontend_ready_callback is not None:
+            nr_of_active_frontends = sum([len(instance._websocketInstances) for instance in self._gui_instances])
+            self.on_frontend_ready_callback(pyHtmlGuiInstance, nr_of_active_frontends)
 
-        self._websocket_close()
-
-    def _websocket_close(self):
-        if self.exit_callback is not None:
-            sockets = [ws for ws in self._websockets]
-            self.exit_callback(sockets)
-
-    def _websocket_process_message(self, message, ws):
-        if "error" in message:
-            raise Exception(message["error"])
-        if 'call' in message:
-            return_val = self._exposed_py_functions[message['name']](*message['args'])
-            self._websocket_repeated_send(ws, json.dumps({ 'return': message['call'], 'value': return_val  }, default=lambda o: None))
-        elif 'return' in message:
-            call_id = message['return']
-            if call_id in self._call_return_callbacks:
-                callback = self._call_return_callbacks.pop(call_id)
-                callback(message['value'])
-            else:
-                self._call_return_values[call_id] = message['value']
+    def _get_gui_instance(self):
+        if self.single_instance is True:
+            if len(self._gui_instances) == 0:
+                self._gui_instances.append(PyHtmlGuiInstance(self))
+            instance = self._gui_instances[0]
         else:
-            print('Invalid message received: ', message)
+            instance = PyHtmlGuiInstance(self)
+            self._gui_instances.append(instance)
+        return instance
 
-    def _websocket_repeated_send(self, ws, msg):
-        for attempt in range(100):
-            try:
-                ws.send(msg)
-                break
-            except Exception:
-                gevent.sleep(0.001)
+    def _release_gui_instance(self, instance):
+        if len(instance._websocketInstances) == 0:
+            self._gui_instances.remove(instance)
 
+        if self.on_frontend_exit_callback is not None:
+            self.on_frontend_exit_callback(instance, sum([len(instance._websocketInstances) for instance in self._gui_instances]))
 
-    def _add_child(self, child):
-        self._children.add(child)
+    def _add_file_to_monitor(self, file_to_monitor, class_name):
+        if self.auto_reload is False:
+            return
+        if file_to_monitor not in self._file_monitoring:
+            last_changed = os.path.getmtime(file_to_monitor)
+            self._file_monitoring[file_to_monitor] = {
+                "file_to_monitor" : file_to_monitor,
+                "last_changed"    : last_changed,
+                "class_names" : set(),
+            }
+        self._file_monitoring[file_to_monitor]["class_names"].add(class_name)
 
-    def _remove_child(self, child):
-        self._children.remove(child)
+    def _monitoring_thread(self):
+        while self.auto_reload is True:
+            time.sleep(5)
+            has_changed = False
+            classed_to_reload = []
+            for file_to_monitor in self._file_monitoring:
+                data = self._file_monitoring[file_to_monitor]
+                current_ts = os.path.getmtime(data["file_to_monitor"])
+                if current_ts != data["last_changed"]:
+                    self._file_monitoring[file_to_monitor]["last_changed"] = current_ts
+                    classed_to_reload.extend(self._file_monitoring[file_to_monitor]["class_names"])
+                    has_changed = True
+            if has_changed is True:
+                for instance in self._gui_instances:
+                    instance.clear_template_cache(classed_to_reload)
+                    instance.update()
 
+class MyWebSocketServer(bottle.ServerAdapter):
+    def run(self, handler):
+        self.server = pywsgi.WSGIServer((self.host, self.port), handler, handler_class=WebSocketHandler)
+        if not self.quiet:
+            self.server.logger = create_logger('geventwebsocket.logging')
+            self.server.logger.setLevel(logging.INFO)
+            self.server.logger.addHandler(logging.StreamHandler())
+        self.server.serve_forever()
 
-
-
+class WebsocketInstance():
+    def __init__(self, ws):
+        self.ws = ws
+        self.javascript_call_result_queues = {}
+        self.javascript_call_result_objects = {}
