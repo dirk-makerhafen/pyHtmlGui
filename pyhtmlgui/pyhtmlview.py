@@ -126,7 +126,7 @@ class PyHtmlView():
             raise Exception("Can't javascript_call invisible components")
         return self.call_javascript("electron.eval_script", [script, kwargs], skip_results=skip_results)
 
-    # set component and childens visibilits
+    # set component and childens visibility
     # components that are not visible get their events detached
     def set_visible(self, visible):
         if self.is_visible == visible:

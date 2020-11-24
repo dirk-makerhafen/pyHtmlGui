@@ -13,7 +13,7 @@ if (package_json.PYHTMLGUI_CMD_ARGS === undefined){package_json.PYHTMLGUI_CMD_AR
 if (package_json.PYHTMLGUI_CMD_ARGS === undefined){package_json.PYHTMLGUI_CMD_ARGS = ""}
 
 function init(){
-  if (package_json.PYHTMLGUI_CMD !== undefined && childProcess === null){  // we launch pyHtmlGui python process internally
+  if (package_json.PYHTMLGUI_CMD !== undefined && package_json.PYHTMLGUI_CMD !== null &&childProcess === null){  // we launch pyHtmlGui python process internally
     var args = package_json.PYHTMLGUI_CMD_ARGS.split(',')
     childProcess = spawn(package_json.PYHTMLGUI_CMD, args, {cwd : __dirname, } );
     childProcess.stdout.setEncoding('utf8');

@@ -5,8 +5,8 @@ with open("README.md", "r") as fh:
 print(setuptools.find_packages())
 
 setuptools.setup(
-    name="pyHtmlGui", # Replace with your own username
-    version="0.2",
+    name="pyhtmlgui", # Replace with your own username
+    version="0.9",
     author="Dirk Makerhafen",
     author_email="dirk@makerhafen.net",
     description="A Python library for building user interfaces",
@@ -20,7 +20,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
-    package_data={'pyHtmlGui': ['assets/electron/*', 'assets/templates/*']},
+    package_data={'pyhtmlgui': ['assets/electron/*', 'assets/templates/*']},
     include_package_data=True,
 
 )

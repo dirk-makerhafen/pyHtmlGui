@@ -6,6 +6,7 @@ import bottle
 import bottle_websocket
 import uuid
 import time
+import shutil
 from gevent import pywsgi
 from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket.logging import create_logger
@@ -57,27 +58,22 @@ class PyHtmlGui():
         self.single_instance = single_instance
 
         if getattr(sys, 'frozen', False) == True:  # check if we are bundled by pyinstaller
-            self.pyHtmlGui_template_dir =  os.path.join(sys._MEIPASS, "pyHtmlGui", "assets", "templates")
-            self.pyHtmlGui_electron_dir =  os.path.join(sys._MEIPASS, "pyHtmlGui", "assets", "electron")
-            self.template_dir =  os.path.join(sys._MEIPASS, self.template_dir)
-            self.static_dir =  os.path.join(sys._MEIPASS, self.static_dir)
-            if self.electron_app_dir is None:
-                self.electron_app_dir = self.pyHtmlGui_electron_dir
-            else:
-                self.electron_app_dir = os.path.join(sys._MEIPASS, self.electron_app_dir)
-            self.root_dir = sys._MEIPASS
+            lib_dir = os.path.join(sys._MEIPASS, "pyhtmlgui")
             self.auto_reload = False
         else:
-            self.pyHtmlGui_template_dir =  os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "templates")
-            print("here", self.pyHtmlGui_template_dir)
-            self.pyHtmlGui_electron_dir =  os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "electron")
-            self.template_dir = os.path.join(os.path.abspath(os.path.dirname(os.path.realpath(sys.argv[0]))), self.template_dir)
-            self.static_dir = os.path.join(os.path.abspath(os.path.dirname(os.path.realpath(sys.argv[0]))), self.static_dir)
-            if self.electron_app_dir is None:
-                self.electron_app_dir = self.pyHtmlGui_electron_dir
-            else:
-                self.electron_app_dir = os.path.join(os.path.abspath(os.path.dirname(os.path.realpath(sys.argv[0]))), self.electron_app_dir)
-            self.root_dir   = os.path.join(os.path.abspath(os.path.dirname(os.path.realpath(sys.argv[0]))))
+            lib_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)))
+
+        self.pyHtmlGui_template_dir =  os.path.join(lib_dir, "assets", "templates")
+        self.pyHtmlGui_electron_dir =  os.path.join(lib_dir, "assets", "electron")
+        if self.electron_app_dir is None: # use deault internal app
+            self.electron_app_dir = self.pyHtmlGui_electron_dir
+        else:
+            if getattr(sys, 'frozen', False) != True:  # if we are not frozen, copy our internal lib to the electron target dir if it does not exist
+                for f in ["pyhtmlgui.js", "main.js"]:
+                    lib_js_target = os.path.join(self.electron_app_dir, f)
+                    lib_js_source = os.path.join(self.pyHtmlGui_electron_dir, f)
+                    if not os.path.exists(lib_js_target):
+                        shutil.copyfile(lib_js_source, lib_js_target)
 
         self._templateLoader = jinja2.FileSystemLoader(searchpath=[self.pyHtmlGui_template_dir, self.template_dir])
         self._templateEnv    = jinja2.Environment(loader=self._templateLoader)

@@ -1,6 +1,4 @@
-import sys
-sys.path.insert(0, ".")
-from pyHtmlGui import PyHtmlGui, PyHtmlView, Observable
+from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
 
 class App(Observable):
     def echo(self, value):

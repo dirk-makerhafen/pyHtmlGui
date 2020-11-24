@@ -1,9 +1,7 @@
-import sys
-sys.path.insert(0, ".")
 import time
 import random
 import threading
-from pyHtmlGui import PyHtmlGui, PyHtmlView, Observable
+from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
 
 class App(Observable):
     pass

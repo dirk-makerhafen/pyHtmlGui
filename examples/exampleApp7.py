@@ -1,6 +1,4 @@
-import sys
-sys.path.insert(0, ".")
-from pyHtmlGui import PyHtmlGui, PyHtmlView, Observable, ObservableList, ObservableListView
+from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable, ObservableList, ObservableListView
 
 class ListItem(Observable):
     def __init__(self, name):

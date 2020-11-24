@@ -1,6 +1,4 @@
-import sys
-sys.path.insert(0, ".")
-from pyHtmlGui import PyHtmlGui, PyHtmlView, Observable, ObservableDict, ObservableDictView
+from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable, ObservableDict, ObservableDictView
 
 
 class DictItem(Observable):

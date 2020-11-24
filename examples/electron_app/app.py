@@ -1,7 +1,7 @@
 import os
 import time
 import json
-from pyHtmlGui import PyHtmlGui, PyHtmlView, Observable
+from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
 
 class App(Observable):pass
 
@@ -10,16 +10,17 @@ class AppView(PyHtmlView):
         <p>i am a button calling a method of the python frontend object</p> 
         <button onclick="pyhtmlgui.call(this.get_time).then(function(e){alert(e);})">Click me</button>   
         <button onclick="pyhtmlgui.call(this.ping)">get electron process info</button>   
-        <div id="electron_process_data"><div>
+        <div id="electron_ping_result"><div>
     '''
     def ping(self):
         self.call_javascript("electron.ping",[])(self.set_result)
 
-    def set_result(self, value):
-        self.eval_javascript("document.getElementById('electron_process_data').innerHTML = args.value", value = json.dumps(value))
+    def set_result(self, values):
+        self.eval_javascript("document.getElementById('electron_ping_result').innerHTML = args.value", value = json.dumps(values))
 
     def get_time(self):
         return time.time()
+
 def _exit():
     print("FRONTEND EXIT CALLBACK")
     exit(0)

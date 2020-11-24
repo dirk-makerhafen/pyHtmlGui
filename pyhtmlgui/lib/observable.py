@@ -1,4 +1,4 @@
-from pyHtmlGui.lib import WeakFunctionReferences
+from .weakfunctionreferences import WeakFunctionReferences
 
 class Observable:
     def __init__(self):

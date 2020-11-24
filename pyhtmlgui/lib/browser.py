@@ -43,7 +43,7 @@ class BrowserElectron():
 
     def run(self, browser_args, env = None, **kwargs):
         if env == None:
-            env = {}
+            env = os.environ.copy()
         cmd = [
             self.executable,
             '--no-sandbox',
@@ -79,8 +79,6 @@ class BrowserChrome():
             raise Exception("Chrome executable could not be found at '%s'" % self.executable)
 
     def run(self, browser_args, env = None, **kwargs):
-        if env is None:
-            env = {}
         start_url = browser_args[0]
         if not browser_args[0].startswith("http"):
             start_url = "http://" + start_url
@@ -91,8 +89,7 @@ class BrowserChrome():
             start_url,
         ]
         print("Launching chrome")
-        print(cmd)
-        subprocess.Popen( cmd, stdout=subprocess.PIPE, stderr=sys.stderr, stdin=subprocess.PIPE, env=env)
+        subprocess.Popen( cmd, stdout=subprocess.PIPE, stderr=sys.stderr, stdin=subprocess.PIPE)
 
     def _find_path(self):
         if sys.platform in ['win32', 'win64']:

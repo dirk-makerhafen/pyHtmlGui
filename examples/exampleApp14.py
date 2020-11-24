@@ -1,8 +1,6 @@
-import sys
-import threading
 import time
-sys.path.insert(0, ".")
-from pyHtmlGui import PyHtmlGui, PyHtmlView, Observable
+import threading
+from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
 
 class PageCounter(Observable):
     def __init__(self):

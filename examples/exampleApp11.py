@@ -1,7 +1,4 @@
-import sys
-sys.path.insert(0, ".")
-import time
-from pyHtmlGui import PyHtmlGui, PyHtmlView, Observable
+from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
 
 class App(Observable):
     pass
@@ -36,6 +33,6 @@ if __name__ == "__main__":
         template_dir    = "templates",
         main_html       = "window.html",
         auto_reload     = True, # Debug only, if you changed the class template_str or files, the frontend will update views on rumtime. try editing app.html while app is running and waid few seconds
-        shared_instance = True, # if you set this to True, open multiple windows, see one AppView connected to multiple frontends,
+        single_instance = False, # if you set this to False, open multiple windows, see one AppView connected to multiple frontends,
     )
     gui.start(show_frontend=True, block=True)

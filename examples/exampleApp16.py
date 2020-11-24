@@ -1,9 +1,8 @@
-import sys
 import os
-sys.path.insert(0, ".")
+import sys
 import time
 import subprocess
-from pyHtmlGui import PyHtmlGui, PyHtmlView, Observable
+from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
 
 class App(Observable):
     pass
