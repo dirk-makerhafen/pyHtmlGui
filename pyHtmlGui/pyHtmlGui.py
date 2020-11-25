@@ -36,8 +36,8 @@ class PyHtmlGui():
          ):
         self.appViewClass = appViewClass
         self.appInstance = appInstance
-        self.static_dir = static_dir
-        self.template_dir = template_dir
+        self.static_dir = os.path.abspath(static_dir)
+        self.template_dir = os.path.abspath(template_dir)
         self.on_frontend_ready_callback = on_frontend_ready
         self.on_frontend_exit_callback = on_frontend_exit
         self.main_html = main_html
@@ -75,8 +75,13 @@ class PyHtmlGui():
                     if not os.path.exists(lib_js_target):
                         shutil.copyfile(lib_js_source, lib_js_target)
 
+        if not os.path.exists(self.template_dir):
+            raise Exception("Template dir '%s' not found" % self.template_dir)
+        if not os.path.exists(self.static_dir):
+            raise Exception("Static dir '%s' not found" % self.static_dir)
+
         self._templateLoader = jinja2.FileSystemLoader(searchpath=[self.pyHtmlGui_template_dir, self.template_dir])
-        self._templateEnv    = jinja2.Environment(loader=self._templateLoader)
+        self._templateEnv = jinja2.Environment(loader=self._templateLoader)
 
         self._gui_instances = []
 
@@ -114,7 +119,7 @@ class PyHtmlGui():
     def show(self):
         env = None
         if self.mode == "electron":
-            args = [ self.electron_app_dir ]
+            args = [ self.electron_app_dir, ]
             env = os.environ.copy()
             env.update({
                 "PYHTMLGUI_HOST" : self.listen_host,
@@ -122,7 +127,7 @@ class PyHtmlGui():
                 "PYHTMLGUI_SECRET" : self.shared_secret,
             })
         else:
-            args = ["%s:%s" % (self.listen_host, self.listen_port)]
+            args = ["%s:%s" % (self.listen_host, self.listen_port),]
             if self.shared_secret is not None:
                 args[0] = "%s?token=%s" % (args[0], self.shared_secret)
         if self._browser is None:
