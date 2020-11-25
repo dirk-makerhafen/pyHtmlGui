@@ -170,9 +170,12 @@
                     return True;
                 },
                 eval_script: function(script, args) {
-                    let f = undefined;
-                    eval('f = function(args){' + script + '}');
+                    const f = new Function("args", script);
                     return f(args);
+                },
+                new_function: function (name, args, script){
+                    console.log("new function");
+                    pyhtmlgui[name] = new Function(...args, script);
                 },
                 debug_msg: function (msg) {
                     console.error(msg);

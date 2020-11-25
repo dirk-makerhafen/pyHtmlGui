@@ -41,8 +41,7 @@ app.on('activate', function () {
 
 pyhtmlgui.add_public_functions({
   eval_script: function(script, args) {
-    let f = undefined;
-    eval('f = function(args){' + script + '}');
+    const f = new Function("args", script);
     return f(args);
   },
   exit: function (){
