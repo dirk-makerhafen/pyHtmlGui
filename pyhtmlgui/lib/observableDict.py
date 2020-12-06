@@ -33,6 +33,7 @@ class ObservableDict(dict, Observable):
         items = []
         for key, value in dict2.items():
             items.append([key, value])
+        dict.update(self, dict2)
         self.notifyObservers(action="update", items=items)
 
     def clear(self):

@@ -1,6 +1,7 @@
 import types
 import weakref
 import uuid
+import traceback
 from threading import Lock
 from .lib import EventSet
 
@@ -8,6 +9,7 @@ from .lib import EventSet
 class PyHtmlView():
     TEMPLATE_FILE = None
     TEMPLATE_STR = None
+    WRAPPER_ELEMENT = "pyHtmlView"
 
     def __init__(self, observedObject, parentView):
 
@@ -72,7 +74,10 @@ class PyHtmlView():
         html = self._inner_html()
         if html == None:
             return None
-        return "<pyHtmlView id='%s'>%s</pyHtmlView>" % (self.uid, html)
+        if self.WRAPPER_ELEMENT is None:
+            return html
+        else:
+            return "<%s id='%s' data-pyhtmlgui-class='%s'>%s</%s>" % (self.WRAPPER_ELEMENT, self.uid, self.__class__.__name__,html, self.WRAPPER_ELEMENT)
 
     def _inner_html(self):
         self._observedObject = self.observedObject # receive hard reference to obj to it does not die on us while rendering
@@ -81,7 +86,17 @@ class PyHtmlView():
             return None
         self.set_visible(True) # It should be ok to set visible here, althou this is befor the rendered object actually appeart in the dom. However, it should arrive at to dom before any other things that might be triggered because the object is visible, because of the websocket event loop
         for child in self._children: child.__was_rendered__ = False
-        html = self._get_template(self).render({"this": self})
+        try:
+            html = self._get_template(self).render({"this": self})
+        except Exception as e:
+            tb = traceback.format_exc()
+            msg = " Exception while rendering Template: %s\n" % self.__class__.__name__
+            msg += " %s" % tb.replace("\n", "\n  ").strip()
+            self.call_javascript("pyhtmlgui.debug_msg", [msg])
+            html = msg
+            print(msg)
+            print(self._get_template(self))
+
         [c.set_visible(False) for c in self._children if c.__was_rendered__ is False and c.is_visible is True] # set children that have not been rendered in last pass to invisible
         self.__was_rendered__ = True
         self._observedObject = None # remove hard reference to observedobject, it may die now
@@ -89,10 +104,11 @@ class PyHtmlView():
 
     # update rendered component in place, must be visibie
     def update(self):
+        print("update")
         if self.is_visible is True:
-            html_content = self._inner_html()
+            html_content = self.render()
             if html_content is not None: # object might have died, in that case don't render
-                self.call_javascript("pyhtmlgui.update_element", [self.uid, html_content], skip_results=True)
+                self.call_javascript("pyhtmlgui.replace_element", [self.uid, html_content], skip_results=True)
         else:
             raise Exception("Can't update invisible components")
 
@@ -150,15 +166,18 @@ class PyHtmlView():
 
 class ObservableDictView(PyHtmlView):
     TEMPLATE_STR = '''
-        {% for _, item in this._wrapped_data.items() %}
+        {% for item in this.get_items() %}
             {{ item.render()}}
         {% endfor %}
     '''
-    def __init__(self, observedObject, parentView, item_class, **kwargs):
+    def __init__(self, observedObject, parentView, item_class, wrapper_element = PyHtmlView.WRAPPER_ELEMENT, sort_lambda=None, sort_reverse=False, **kwargs):
         self._item_class = item_class
+        self.WRAPPER_ELEMENT = wrapper_element
         self._kwargs = kwargs
         self._wrapped_data = {}
         self._wrapped_data_lock = Lock()
+        self.sort_lambda = sort_lambda
+        self.sort_reverse = sort_reverse
         super().__init__(observedObject, parentView)
 
     def set_visible(self, visible):
@@ -172,6 +191,13 @@ class ObservableDictView(PyHtmlView):
                 key, item = kv
                 self._wrapped_data[key] = self._create_item(item, key)
         self._wrapped_data_lock.release()
+
+    def get_items(self):
+        items = [item for key, item in self._wrapped_data.items()]
+        if self.sort_lambda is None:
+            return sorted(items, key=lambda x: x.item_key)
+        else:
+            return sorted(items, key=lambda x:self.sort_lambda, reverse=self.sort_reverse)
 
     def _create_item(self, item, key):
         obj = self._item_class(item, self, **self._kwargs)

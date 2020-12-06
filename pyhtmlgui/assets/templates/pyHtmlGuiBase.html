@@ -161,9 +161,16 @@
                     return true;
 
                 },
+                replace_element: function(elementId, content) {
+                    var template = document.createElement('template');
+                    template.innerHTML = content.trim();
+                    var current_element = document.getElementById(elementId);
+                    var new_element = template.content.firstChild
+                    current_element.parentNode.replaceChild(new_element, current_element);
+                    return true;
+                },
                 update_element: function(elementId, content) {
                     document.getElementById(elementId).innerHTML = content;
-                    return true;
                 },
                 remove_element: function(elementId) {
                     document.getElementById(elementId).remove();
@@ -197,7 +204,6 @@
     </head>
 
     <body id="pyHtmlGuiBody">
-
     </body>
 
 </html>

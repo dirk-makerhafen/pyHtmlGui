@@ -10,13 +10,23 @@ class ItemView(PyHtmlView):
     TEMPLATE_STR = '''
         <div name="target" style="position:absolute;left:{{this.position}}px"> x </div>
     '''
+
     def __init__(self, observedObject, parentView):
         super().__init__(observedObject, parentView)
         self.max_position = 500
         self.position = random.randint(0,self.max_position)
         self.direction = -1 if random.random() > 0.5 else 1
+        self.rendered = False
+
+    def render(self):
+        if self.rendered is False:
+            self.rendered = True
+            self.call_javascript("pyhtmlgui.new_function",["my_function", ["arg1", "arg2"], "console.log(arg1+'__'+arg2);"])
+        return super(ItemView, self).render()
 
     def do_update_via_js(self):
+
+        self.call_javascript(" pyhtmlgui.my_function", [1,2])
         self.position += self.direction
         if self.position > self.max_position: self.direction = -1
         if self.position < 1: self.direction =  1

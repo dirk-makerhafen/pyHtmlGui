@@ -7,6 +7,7 @@ import bottle_websocket
 import uuid
 import time
 import shutil
+import traceback
 from gevent import pywsgi
 from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket.logging import create_logger
@@ -219,7 +220,11 @@ class PyHtmlGui():
             if has_changed is True:
                 for instance in self._gui_instances:
                     instance.clear_template_cache(classed_to_reload)
-                    instance.update()
+                    try:
+                        instance.update()
+                    except Exception as e:
+                        print("Failed to Update")
+                        print(traceback.format_exc())
 
 class MyWebSocketServer(bottle.ServerAdapter):
     def run(self, handler):

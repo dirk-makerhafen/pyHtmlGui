@@ -29,10 +29,10 @@ if __name__ == "__main__":
     gui = PyHtmlGui(
         appInstance     = App(),
         appViewClass    = AppView,
-        static_dir      = "static",
-        template_dir    = "templates",
+        static_dir      = "examples/static",
+        template_dir    = "examples/templates",
         main_html       = "window.html",
         auto_reload     = True, # Debug only, if you changed the class template_str or files, the frontend will update views on rumtime. try editing app.html while app is running and waid few seconds
-        single_instance = False, # if you set this to False, open multiple windows, see one AppView connected to multiple frontends,
+        single_instance = True, # if you set this to False, open multiple windows, see one AppView connected to multiple frontends,
     )
     gui.start(show_frontend=True, block=True)
