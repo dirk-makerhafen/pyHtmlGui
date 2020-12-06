@@ -178,7 +178,6 @@ class PyHtmlGuiInstance():
 
         # use \pyhtmlgui.call to excape pyhtmlgui.call in case of for example <div>Usage: pyhtmlgui.call(this.foobar, "arg1") </div> where the function should not be called
         string_to_render = string_to_render.replace('\pyhtmlgui.call(', 'pyhtmlgui.call(')
-        print("string_to_render", string_to_render)
         try:
             self._templateCache[item.__class__.__name__] = self._templateEnv.from_string(string_to_render)
         except Exception as e:
