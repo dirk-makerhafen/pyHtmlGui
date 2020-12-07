@@ -155,11 +155,12 @@
                 },
 
                 insert_element: function (elementId, index, content) {
-                    newElement = new DOMParser().parseFromString(content, "text/html").body.firstChild;
-                    parentElement = document.getElementById(elementId);
-                    parentElement.insertBefore(newElement , parentElement.children[index]);
+                    var template = document.createElement('template');
+                    template.innerHTML = content.trim();
+                    var parentElement = document.getElementById(elementId);
+                    var new_element = template.content.firstChild
+                    parentElement.insertBefore(new_element , parentElement.children[index]);
                     return true;
-
                 },
                 replace_element: function(elementId, content) {
                     var template = document.createElement('template');

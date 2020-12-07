@@ -112,13 +112,13 @@ class PyHtmlView():
             raise Exception("Can't update invisible components")
 
     # detach events, remove from parent, remove from frontend if is visible
-    def delete(self):
+    def delete(self, already_removed_from_dom = False):
         self.events.detach_all()
-        if self.is_visible is True:
+        if self.is_visible is True and already_removed_from_dom is False:
             self.call_javascript("pyhtmlgui.remove_element", [self.uid], skip_results=True)
         self.parentView._remove_child(self)
         for child in self._children:
-            child.delete()
+            child.delete(already_removed_from_dom = True)
 
     # insert this rendered element into parent node at index
     def insert_element(self, index):
@@ -243,16 +243,26 @@ class ObservableDictView(PyHtmlView):
 
 class ObservableListView(PyHtmlView):
     TEMPLATE_STR = '''
-        {% for item in this._wrapped_data %}
+        {% for item in this.get_items() %}
             {{ item.render()}}
         {% endfor %}
     '''
-    def __init__(self, observedObject, parentView, item_class, **kwargs):
+    def __init__(self, observedObject, parentView, item_class, wrapper_element = PyHtmlView.WRAPPER_ELEMENT, sort_lambda=None, sort_reverse=False, **kwargs):
         self._item_class = item_class
+        self.WRAPPER_ELEMENT = wrapper_element
         self._kwargs = kwargs
         self._wrapped_data = []
         self._wrapped_data_lock = Lock()
+        self.sort_lambda = sort_lambda
+        self.sort_reverse = sort_reverse
         super().__init__(observedObject, parentView)
+
+    def get_items(self):
+        if self.sort_lambda is None:
+            return self._wrapped_data
+        else:
+            return sorted(self._wrapped_data, key=lambda x:self.sort_lambda, reverse=self.sort_reverse)
+
 
     def set_visible(self, visible):
         if self.is_visible == visible: # not changed
