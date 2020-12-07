@@ -57,7 +57,7 @@ class PyHtmlView():
     def parentView(self):
         return self._parentView_wref()
 
-    def _on_observedObject_updated(self, *kwargs):
+    def _on_observedObject_updated(self, source, **kwargs):
         self.update()
 
     def _on_observedObject_died(self, wr):
@@ -77,7 +77,7 @@ class PyHtmlView():
         if self.WRAPPER_ELEMENT is None:
             return html
         else:
-            return "<%s id='%s' data-pyhtmlgui-class='%s'>%s</%s>" % (self.WRAPPER_ELEMENT, self.uid, self.__class__.__name__,html, self.WRAPPER_ELEMENT)
+            return "<%s id='%s' data-pyhtmlgui-class='%s'>%s</%s>" % (self.WRAPPER_ELEMENT, self.uid, self.__class__.__name__, html, self.WRAPPER_ELEMENT)
 
     def _inner_html(self):
         self._observedObject = self.observedObject # receive hard reference to obj to it does not die on us while rendering
@@ -104,7 +104,6 @@ class PyHtmlView():
 
     # update rendered component in place, must be visibie
     def update(self):
-        print("update")
         if self.is_visible is True:
             html_content = self.render()
             if html_content is not None: # object might have died, in that case don't render
