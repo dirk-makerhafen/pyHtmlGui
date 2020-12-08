@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 print(setuptools.find_packages())
 
 setuptools.setup(
-    name="pyhtmlgui", # Replace with your own username
+    name="pyhtmlgui",
     version="0.9",
     author="Dirk Makerhafen",
     author_email="dirk@makerhafen.net",

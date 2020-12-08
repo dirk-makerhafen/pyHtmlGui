@@ -175,19 +175,18 @@
                 },
                 remove_element: function(elementId) {
                     document.getElementById(elementId).remove();
-                    return True;
+                    return true;
                 },
                 eval_script: function(script, args) {
                     const f = new Function("args", script);
                     return f(args);
                 },
                 new_function: function (name, args, script){
-                    console.log("new function");
                     pyhtmlgui[name] = new Function(...args, script);
                 },
                 debug_msg: function (msg) {
                     console.error(msg);
-                    return True;
+                    return true;
                 },
 
             }

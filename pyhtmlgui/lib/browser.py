@@ -27,7 +27,6 @@ class BrowserDefault():
     def __init__(self):
         pass
     def run(self, browser_args, **kwargs):
-        print("Launching default browser")
         webbrowser.open(browser_args)
 
 
@@ -48,11 +47,7 @@ class BrowserElectron():
             self.executable,
             '--no-sandbox',
             '--disable-http-cache',
-            #first_arg,
         ] + browser_args
-        #cmd.extend(main_js_args)
-        print("Launching electron")
-        print(cmd)
         subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, stdin=subprocess.PIPE, env=env)
 
     def _find_path(self):
@@ -88,7 +83,6 @@ class BrowserChrome():
             #'--disable-http-cache',
             start_url,
         ]
-        print("Launching chrome")
         subprocess.Popen( cmd, stdout=subprocess.PIPE, stderr=sys.stderr, stdin=subprocess.PIPE)
 
     def _find_path(self):
