@@ -23,7 +23,10 @@ class WeakFunctionReferences():
         return f
 
     def get_all(self):
-        return [self.get(key) for key in self.references.keys()]
+        keys = [key for key in self.references.keys()]
+        for key in keys:
+            if key in self.references.keys():
+                yield self.get(key)
 
     def _obj_died(self, callback_id ):
         def f(wr):
