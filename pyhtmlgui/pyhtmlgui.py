@@ -154,7 +154,7 @@ class PyHtmlGui():
         if bottle.request.get_cookie("token") != self._token_cookie:
             return bottle.HTTPResponse(status=403)
         response = bottle.static_file(path, root=self.static_dir)
-        response.set_header("Cache-Control", "public, max-age=60")
+        response.set_header("Cache-Control", "public, max-age=36000")
         return response
 
     # /ws

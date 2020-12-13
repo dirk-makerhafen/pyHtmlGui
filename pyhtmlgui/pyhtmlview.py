@@ -95,7 +95,6 @@ class PyHtmlView():
             self.call_javascript("pyhtmlgui.debug_msg", [msg])
             html = msg
             print(msg)
-            print(self._get_template(self))
 
         [c.set_visible(False) for c in self._children if c.__was_rendered__ is False and c.is_visible is True] # set children that have not been rendered in last pass to invisible
         self.__was_rendered__ = True
@@ -247,7 +246,7 @@ class ObservableListView(PyHtmlView):
             {{ item.render()}}
         {% endfor %}
     '''
-    def __init__(self, observedObject, parentView, item_class, wrapper_element = PyHtmlView.WRAPPER_ELEMENT, sort_lambda=None, sort_reverse=False, **kwargs):
+    def __init__(self, observedObject, parentView, item_class, wrapper_element = PyHtmlView.WRAPPER_ELEMENT, sort_lambda=None, sort_reverse=False, filter= None, **kwargs):
         self._item_class = item_class
         self.WRAPPER_ELEMENT = wrapper_element
         self._kwargs = kwargs
@@ -255,14 +254,17 @@ class ObservableListView(PyHtmlView):
         self._wrapped_data_lock = Lock()
         self.sort_lambda = sort_lambda
         self.sort_reverse = sort_reverse
+        self.filter = filter
+        if self.filter is None:
+            self.filter = lambda x: False
         super().__init__(observedObject, parentView)
 
     def get_items(self):
+        data = [w for w in self._wrapped_data if self.filter(w) is False]
         if self.sort_lambda is None:
-            return self._wrapped_data
+            return data
         else:
-            return sorted(self._wrapped_data, key=lambda x:self.sort_lambda, reverse=self.sort_reverse)
-
+            return sorted(data, key=lambda x:self.sort_lambda, reverse=self.sort_reverse)
 
     def set_visible(self, visible):
         if self.is_visible == visible: # not changed
@@ -288,27 +290,30 @@ class ObservableListView(PyHtmlView):
             if kwargs["action"] in ["append", "insert"]:
                 obj = self._create_item(kwargs["item"])
                 self._wrapped_data.insert(kwargs["index"], obj)
-                if obj.insert_element(kwargs["index"]) is False:
-                    self._wrapped_data.remove(obj)
-                else:
-                    [item.update() for item in self._wrapped_data[kwargs["index"]+1:] if item.loop_index_used == True] # update items that use the loop index
+                if self.filter(obj) is False:
+                    if obj.insert_element(kwargs["index"]) is False:
+                        self._wrapped_data.remove(obj)
+                    else:
+                        [item.update() for item in self._wrapped_data[kwargs["index"]+1:] if item.loop_index_used == True] # update items that use the loop index
 
             if kwargs["action"] == "setitem":
                 self._wrapped_data[kwargs["index"]].delete() # unrender
                 obj = self._create_item(kwargs["newItem"])
                 self._wrapped_data[kwargs["index"]] = obj
-                if obj.insert_element(kwargs["index"]) is False:
-                    self._wrapped_data.remove(obj)
+                if self.filter(obj) is False:
+                    if obj.insert_element(kwargs["index"]) is False:
+                        self._wrapped_data.remove(obj)
 
             if kwargs["action"] == "extend":
                 current_index = kwargs["index"]
                 for item in kwargs["items"]:
                     obj = self._create_item(item)
                     self._wrapped_data.insert(current_index, obj)
-                    if obj.insert_element(kwargs["index"]) is False:
-                        self._wrapped_data.remove(obj)
-                    else:
-                        current_index += 1
+                    if self.filter(obj) is False:
+                        if obj.insert_element(kwargs["index"]) is False:
+                            self._wrapped_data.remove(obj)
+                        else:
+                            current_index += 1
                 [item.update() for item in self._wrapped_data[current_index:] if item.loop_index_used == True]
 
             if kwargs["action"] in [ "remove", "pop", "delitem"]:

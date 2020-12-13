@@ -143,32 +143,38 @@ class PyHtmlGuiInstance():
             file_to_monitor =  self._templateEnv.get_template(item.TEMPLATE_FILE).filename
             string_to_render = open(file_to_monitor, "r").read()
         else:   # load from class
-            module_name = item.__module__
-            if module_name is None or module_name == str.__class__.__module__:
-                module_fullname = item.__class__.__name__  # Avoid reporting __builtin__
+            if self._pyHtmlGui.auto_reload is False:
+                string_to_render = item.TEMPLATE_STR
+                file_to_monitor  = None
             else:
-                module_fullname = module_name + '.' + item.__class__.__name__
+                module_name = item.__module__
+                if module_name is None or module_name == str.__class__.__module__:
+                    module_fullname = item.__class__.__name__  # Avoid reporting __builtin__
+                else:
+                    module_fullname = module_name + '.' + item.__class__.__name__
 
-            try:
-                file_to_monitor = os.path.abspath(inspect.getfile(item.__class__))
-            except:  # in case its in mail, this may be a bug? in inspect
-                file_to_monitor = os.path.abspath(sys.argv[0])
+                try:
+                    file_to_monitor = os.path.abspath(inspect.getfile(item.__class__))
+                except:  # in case its in mail, this may be a bug? in inspect
+                    file_to_monitor = os.path.abspath(sys.argv[0])
 
-            if module_name == "__main__":
-                name = os.path.splitext(os.path.basename(file_to_monitor))[0]
-                module = __import__(name)
-                importlib.reload(module) # reload should work on non complex objects in __main__, but not for more
-                for comp in module_fullname.split(".")[1:]:
-                    module = getattr(module, comp)
-            else:
-                loader = importlib.machinery.SourceFileLoader(module_name, file_to_monitor)
-                spec = importlib.util.spec_from_loader(loader.name, loader)
-                module = importlib.util.module_from_spec(spec)
-                loader.exec_module(module)
-                module = getattr(module, module_fullname.split(".")[-1])
-            string_to_render = module.TEMPLATE_STR
+                if module_name == "__main__":
+                    name = os.path.splitext(os.path.basename(file_to_monitor))[0]
+                    module = __import__(name)
+                    importlib.reload(module) # reload should work on non complex objects in __main__, but not for more
+                    for comp in module_fullname.split(".")[1:]:
+                        module = getattr(module, comp)
+                else:
+                    loader = importlib.machinery.SourceFileLoader(module_name, file_to_monitor)
+                    spec = importlib.util.spec_from_loader(loader.name, loader)
+                    module = importlib.util.module_from_spec(spec)
+                    loader.exec_module(module)
+                    module = getattr(module, module_fullname.split(".")[-1])
+                string_to_render = module.TEMPLATE_STR
 
-        self._add_file_to_monitor(file_to_monitor, item.__class__.__name__)
+        if self._pyHtmlGui.auto_reload is True:
+            self._add_file_to_monitor(file_to_monitor, item.__class__.__name__)
+
         # replace pyhtmlgui.call(python_function, "arg1") with pyhtmlgui.call({{_create_py_function_reference(python_function)}}, "arg1")
         # this a a convinience function is user does not have to type the annoying stuff and functions look cleaner
         parts = re.split(r'(>| |\(|=|\"|\'|\n|\r|\t|;)(pyhtmlgui\.call\(.+?)(,|\))', string_to_render)
