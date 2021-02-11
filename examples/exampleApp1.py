@@ -10,7 +10,7 @@ class AppView(PyHtmlView):
         <button onclick="pyhtmlgui.call(this.get_time).then(function(e){alert(e);})">Click me</button>   
     '''
     def get_time(self):
-        return time.time()
+        return "This string was created by python code at %s" % time.time()
 
 if __name__ == "__main__":
     gui = PyHtmlGui(
