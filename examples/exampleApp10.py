@@ -58,7 +58,7 @@ class ItemView(PyHtmlView):
     def _on_observedObject_updated(self, *kwargs):
         self.eval_javascript(
             '''document.getElementById(args.uid).querySelector('[name="target"').style.left = args.position;''',
-            skip_results=True, uid = self.uid, position = "%spx" % self.observedObject.position)  # skip_result for speedup, prevents return data to be send via ws
+            skip_results=True, uid = self.uid, position = "%spx" % self.observedObject.position)()  # skip_result for speedup, prevents return data to be send via ws
 
 class AppView(PyHtmlView):
     TEMPLATE_STR = '''

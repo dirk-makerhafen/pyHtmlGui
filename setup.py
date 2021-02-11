@@ -6,9 +6,9 @@ print(setuptools.find_packages())
 
 setuptools.setup(
     name="pyhtmlgui",
-    version="0.9",
+    version="1.0",
     author="Dirk Makerhafen",
-    author_email="dirk@makerhafen.net",
+    author_email="dirk@makerhafen.de",
     description="A Python library for building user interfaces",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -22,5 +22,4 @@ setuptools.setup(
     python_requires='>=3.6',
     package_data={'pyhtmlgui': ['assets/electron/*', 'assets/templates/*']},
     include_package_data=True,
-
 )

@@ -13,7 +13,7 @@ class App(Observable):
 
 class AppView(PyHtmlView):
     TEMPLATE_STR = '''
-        <p>i am a button calling a method of the python frontend object</p>         
+        <p>I am a button calling a method of the python frontend object</p>         
         I call a python function with arguments and show its return value
       
         <button onclick="pyhtmlgui.call(this.clicked)">Click me</button>   
