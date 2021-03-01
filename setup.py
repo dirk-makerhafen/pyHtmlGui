@@ -21,5 +21,5 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
     package_data={'pyhtmlgui': ['assets/electron/*', 'assets/templates/*']},
-    include_package_data=True,
+    #include_package_data=True,
 )

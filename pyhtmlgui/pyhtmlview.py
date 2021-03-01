@@ -4,7 +4,7 @@ import uuid
 import traceback
 from threading import Lock
 from .lib import EventSet
-
+import time
 
 class PyHtmlView():
     TEMPLATE_FILE = None
@@ -35,6 +35,8 @@ class PyHtmlView():
 
         # get template loader function from parent
         self._get_template  = parentView._get_template
+        self.__was_rendered__ = True
+        self.__last_rendered = None # timestamp of last rendering, for debug only
 
         self._call_javascript = parentView._call_javascript # root element gets this supplied by pyhtmlgui lib, else none
         self.events = EventSet()
@@ -46,6 +48,8 @@ class PyHtmlView():
             except Exception as e: # detach all will thow an exception if the event can not be attached
                 print(e)
                 print("object type '%s' can not be observed" % type(observedObject))
+
+
 
     @property
     def observedObject(self):
@@ -74,6 +78,7 @@ class PyHtmlView():
         html = self._inner_html()
         if html == None:
             return None
+        self.__last_rendered = time.time()
         if self.WRAPPER_ELEMENT is None:
             return html
         else:

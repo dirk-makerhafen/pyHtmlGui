@@ -27,7 +27,6 @@ if __name__ == "__main__":
         appViewClass = AppView,
     )
     gui.start(show_frontend=True, block=True)
-
 ```
            
 ##### Example 2

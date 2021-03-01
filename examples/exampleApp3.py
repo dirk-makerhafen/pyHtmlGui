@@ -19,6 +19,7 @@ class AppView(PyHtmlView):
         self.worker_thread.start()
 
     def _worker_thread(self):
+        self.insert_element()
         while True:
             if self.paused is False:
                 self.value = time.time()

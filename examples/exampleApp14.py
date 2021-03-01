@@ -48,6 +48,7 @@ class AppView(PyHtmlView):
         <button onclick="pyhtmlgui.call(this.show_page2)">show page 2</button>
         <br>
         {{ this.current_page.render() }}
+        {{ self.__last_rendered }}
     '''
 
     def __init__(self, observedObject, parentView):
@@ -55,6 +56,7 @@ class AppView(PyHtmlView):
         self.page1 = PageView(observedObject.counter1, self, "Page 1")
         self.page2 = PageView(observedObject.counter2, self, "Page 2")
         self.current_page = self.page1
+
 
     def show_page1(self):
         self.set_current_page(self.page1)

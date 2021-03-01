@@ -25,7 +25,6 @@ class ItemView(PyHtmlView):
         return super(ItemView, self).render()
 
     def do_update_via_js(self):
-
         self.call_javascript(" pyhtmlgui.my_function", [1,2])
         self.position += self.direction
         if self.position > self.max_position: self.direction = -1
