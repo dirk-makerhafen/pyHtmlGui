@@ -1,0 +1,2 @@
+recursive-include pyhtmlgui/asset/electron *
+recursive-include pyhtmlgui/asset/templates *
