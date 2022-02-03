@@ -1,6 +1,7 @@
 import weakref
 
-class WeakFunctionReferences():
+
+class WeakFunctionReferences:
     def __init__(self):
         self.references = {}
 
@@ -17,7 +18,7 @@ class WeakFunctionReferences():
         del self.references[callback_id]
 
     def get(self, callback_id):
-        wr, fname  = self.references[callback_id]
+        wr, fname = self.references[callback_id]
         obj = wr()
         f = getattr(obj, fname)
         return f
@@ -28,16 +29,16 @@ class WeakFunctionReferences():
             if key in self.references.keys():
                 yield self.get(key)
 
-    def _obj_died(self, callback_id ):
+    def _obj_died(self, callback_id):
         def f(wr):
-            print("object died", callback_id, wr)
             del self.references[callback_id]
+
         return f
 
-    def _get_callback_id(self, function):
+    @staticmethod
+    def _get_callback_id(function):
         obj = function.__self__
         callback_id = hash("%s%s" % (id(obj), function.__name__)) & 0xffffffffffff
         if callback_id < 0:
             callback_id = callback_id * -1
         return callback_id
-

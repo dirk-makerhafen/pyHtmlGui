@@ -2,34 +2,7 @@
 
 A python library for building user interfaces in html. Somewhat like reactjs, but in python.
  
-
-##### Example 1
- 
- Call python object from javascript frontend
-
-```python
-import time
-from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
-
-class App(Observable): pass
-
-class AppView(PyHtmlView):
-    TEMPLATE_STR = '''
-        <p>i am a button calling a method of the python frontend object</p> 
-        <button onclick="pyhtmlgui.call(this.get_time).then(function(e){alert(e);})">Click me</button>   
-    '''
-    def get_time(self):
-        return time.time()
-
-if __name__ == "__main__":
-    gui = PyHtmlGui(
-        appInstance  = App(),
-        appViewClass = AppView,
-    )
-    gui.start(show_frontend=True, block=True)
-```
-           
-##### Example 2
+##### Example
 
 Update frontend automatically if python object changes
 
@@ -50,19 +23,20 @@ class App(Observable):
         while True:
             if self.paused is False:
                 self.value = time.time()
-                self.notifyObservers()
+                self.notify_observers()
             time.sleep(1)
 
     def pause_restart(self):
         self.paused = not self.paused
-        self.notifyObservers()
+        self.notify_observers()
 
 class AppView(PyHtmlView):
     TEMPLATE_STR = '''
         I am an item that is updated when the observed backend object changes, this is the normal default way of usage  <br>
         {{ this.observedObject.value}}<br>
-         <button onclick='pyhtmlgui.call(this.observedObject.pause_restart);'> {% if this.observedObject.paused == True %} Start {% else %} Pause {% endif %}</button>
-    '''
+        <button onclick='pyhtmlgui.call(this.observedObject.pause_restart);'> {% if this.observedObject.paused == True %} Start {% else %} Pause {% endif %}</button>
+        
+'''
 
 if __name__ == "__main__":
     gui = PyHtmlGui(
@@ -87,3 +61,49 @@ Launch modes:
     
  
     
+#### Examples
+
+### Example 1
+This is a simple app example. 
+It has:
+    - 1 View Class
+    - 1 App Object
+    - Updates the frontend automatically when the app object changes
+    - Calls a function in the App object from a html button.
+    
+### Example 3
+Shows some ways how to call pythons functions from javascript
+
+### Example 4
+Shows some ways how to call javascript code from python
+
+### Example 5
+Normally frontend object are updated when notifyObservers() is called and the object is visible.
+However sometimes you might want to overwrite this. For example if you want to do some frontend animation controlled by python
+, you might want to render the object once and then update for example only some css style variable. 
+To do this overwrite the _on_observedObject_updated of your PyHtmlView object
+
+### Example 6
+If you want to render a list or dict of objects, there are helper classes that keep the frontend in sync with the backend object.
+
+### Example 7
+Obviously you don't have the put the template html into the python file.
+Example 7 show how to put everything in seperate directorys.
+Also enables auto reload to you can keep you app running while editing html. changed will automatically be show in the gui.
+
+### Example 9
+Frontend object are only updated, aka the notifyObservers() event is only processed if the object is visible.
+Example 9 showcases this.
+
+### Example 10
+If you want to show multiple frontend views for one app instance, 
+you can choose if all fontend share one state or if you want independant frontend instances.
+
+### Example 11
+You can also use electron as a frontend. You can choose you launch order. 
+You can either: Launch you python code, this code will then launch electron to show your frontend.
+
+
+### Example 12
+Or: Launch an electron app that imports pyhtmlgui that will than launch you python code from inside the electron app.
+

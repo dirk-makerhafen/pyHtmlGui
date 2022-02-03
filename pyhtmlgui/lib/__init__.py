@@ -1,5 +1,4 @@
-from .eventset import EventSet
-from .weakfunctionreferences import WeakFunctionReferences
+from .weakFunctionReferences import WeakFunctionReferences
 from .browser import Browser
 from .observable import Observable
 from .observableDict import ObservableDict

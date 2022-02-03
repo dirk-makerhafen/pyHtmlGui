@@ -6,16 +6,16 @@ import webbrowser
 
 
 class Browser():
-    def __init__(self, browsername = "default", executable = None):
+    def __init__(self, browsername="default", executable=None):
         self.browsername = browsername
-        self.exeutable = executable
+        self.executable = executable
         self.browserInstance = None
         if browsername == "default":
             self.browserInstance = BrowserDefault()
         elif browsername == "chrome":
-            self.browserInstance = BrowserChrome(self.exeutable)
+            self.browserInstance = BrowserChrome(self.executable)
         elif browsername == "electron":
-            self.browserInstance = BrowserElectron(self.exeutable)
+            self.browserInstance = BrowserElectron(self.executable)
         else:
             raise Exception("Unknown mode '%s', use 'default' for system browser or 'chrome' or 'electron'")
 
@@ -26,7 +26,9 @@ class Browser():
 class BrowserDefault():
     def __init__(self):
         pass
-    def run(self, browser_args, **kwargs):
+
+    @staticmethod
+    def run(browser_args, **kwargs):
         webbrowser.open(browser_args)
 
 
@@ -40,17 +42,18 @@ class BrowserElectron():
         if not os.path.isfile(self.executable):
             raise Exception("Electron executable could not be found at '%s'" % self.executable)
 
-    def run(self, browser_args, env = None, **kwargs):
-        if env == None:
+    def run(self, browser_args, env=None, **kwargs):
+        if env is None:
             env = os.environ.copy()
         cmd = [
-            self.executable,
-            '--no-sandbox',
-            '--disable-http-cache',
-        ] + browser_args
+                  self.executable,
+                  '--no-sandbox',
+                  '--disable-http-cache',
+              ] + browser_args
         subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, stdin=subprocess.PIPE, env=env)
 
-    def _find_path(self):
+    @staticmethod
+    def _find_path():
         if sys.platform in ['win32', 'win64']:
             # It doesn't work well passing the .bat file to Popen, so we get the actual .exe
             bat_path = whichcraft.which('electron')
@@ -73,17 +76,17 @@ class BrowserChrome():
         if not os.path.isfile(self.executable):
             raise Exception("Chrome executable could not be found at '%s'" % self.executable)
 
-    def run(self, browser_args, env = None, **kwargs):
+    def run(self, browser_args, env=None, **kwargs):
         start_url = browser_args[0]
         if not browser_args[0].startswith("http"):
             start_url = "http://" + start_url
         cmd = [
             self.executable,
-            #'--no-sandbox',
-            #'--disable-http-cache',
+            # '--no-sandbox',
+            # '--disable-http-cache',
             start_url,
         ]
-        subprocess.Popen( cmd, stdout=subprocess.PIPE, stderr=sys.stderr, stdin=subprocess.PIPE)
+        subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr, stdin=subprocess.PIPE)
 
     def _find_path(self):
         if sys.platform in ['win32', 'win64']:
@@ -95,7 +98,8 @@ class BrowserChrome():
         else:
             return None
 
-    def _find_chrome_mac(self):
+    @staticmethod
+    def _find_chrome_mac():
         default_dir = r'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
         if os.path.exists(default_dir):
             return default_dir
@@ -106,7 +110,8 @@ class BrowserChrome():
             return alternate_dirs[0] + '/Contents/MacOS/Google Chrome'
         return None
 
-    def _find_chrome_linux(self):
+    @staticmethod
+    def _find_chrome_linux():
         import whichcraft as wch
         chrome_names = ['chromium-browser',
                         'chromium',
@@ -119,7 +124,8 @@ class BrowserChrome():
                 return chrome
         return None
 
-    def _find_chrome_win(self):
+    @staticmethod
+    def _find_chrome_win():
         import winreg as reg
         reg_path = r'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe'
 

@@ -6,13 +6,13 @@ print(setuptools.find_packages())
 
 setuptools.setup(
     name="pyhtmlgui",
-    version="1.2",
+    version="1.5",
     author="Dirk Makerhafen",
     author_email="dirk@makerhafen.de",
     description="A Python library for building user interfaces",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/dirk-attraktor/pyHtmlGui",
+    url="https://github.com/dirk-makerhafen/pyHtmlGui",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",

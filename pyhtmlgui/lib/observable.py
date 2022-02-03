@@ -1,16 +1,16 @@
-from .weakfunctionreferences import WeakFunctionReferences
+from .weakFunctionReferences import WeakFunctionReferences
 
-class Observable:
+
+class Observable():
     def __init__(self):
-        self._observers =  WeakFunctionReferences()
+        self._observers = WeakFunctionReferences()
 
-    def attachObserver(self, observer):
-        self._observers.add(observer)
+    def attach_observer(self, target_function):
+        self._observers.add(target_function)
 
-    def detachObserver(self, observer):
-        self._observers.remove(observer)
+    def detach_observer(self, target_function):
+        self._observers.remove(target_function)
 
-    def notifyObservers(self, **kwargs):
-        for eventObserver in self._observers.get_all():
-            eventObserver(self, **kwargs)
-
+    def notify_observers(self, **kwargs):
+        for target_function in self._observers.get_all():
+            target_function(self, **kwargs)

@@ -11,8 +11,9 @@ import importlib
 import gevent
 from .lib import WeakFunctionReferences
 
+
 class PyHtmlGuiInstance():
-    def __init__(self, pyHtmlGui ):
+    def __init__(self, pyHtmlGui):
         self._pyHtmlGui = pyHtmlGui
         self._appInstance = pyHtmlGui.appInstance
         self._appViewClass = pyHtmlGui.appViewClass
@@ -24,12 +25,16 @@ class PyHtmlGuiInstance():
         self._templateEnv = jinja2.Environment(loader=self._templateLoader)
         self._templateCache = {}
         self._call_number = 0
-        self._call_javascript = self.call_javascript # so the call_javascript function in view is available
+        self._call_javascript = self.call_javascript  # so the call_javascript function in view is available
         self._function_references = WeakFunctionReferences()
 
         self._templateEnv.globals['_create_py_function_reference'] = self._create_function_reference
 
         self.view = self._appViewClass(self._appInstance, self)
+
+    @property
+    def instances_count(self):
+        return len(self._websocketInstances)
 
     def update(self):
         self.call_javascript("pyhtmlgui.update_element", ["pyHtmlGuiBody", self.view.render()], skip_results=True)
@@ -42,9 +47,9 @@ class PyHtmlGuiInstance():
             self.update()
 
     # CALL JS FROM PY
-    def call_javascript(self, js_function_name, args, skip_results = False):
+    def call_javascript(self, js_function_name, args, skip_results=False):
         self._call_number += 1
-        to_delete = self._call_number - 100 # clean old function references, this is needed to results don't stay around if you don't set skip_results=True and don't use the result.
+        to_delete = self._call_number - 100  # clean old function references, this is needed to results don't stay around if you don't set skip_results=True and don't use the result.
         for websocketInstance in self._websocketInstances:
             if to_delete in websocketInstance.javascript_call_result_objects:
                 del websocketInstance.javascript_call_result_objects[to_delete]
@@ -63,7 +68,7 @@ class PyHtmlGuiInstance():
         for websocketInstance in self._websocketInstances:
             if skip_results is False:
                 websocketInstance.javascript_call_result_objects[self._call_number] = javascriptCallResult
-                javascriptCallResult._add_call(websocketInstance)
+                javascriptCallResult.add_call(websocketInstance)
             websocketInstance.ws.send(data)
         return javascriptCallResult
 
@@ -105,24 +110,25 @@ class PyHtmlGuiInstance():
                     return_val = function(*args)
                 else:
                     return_val = None
-                    print("unknown python function", message['name'] )
+                    print("unknown python function", message['name'])
 
             except Exception as e:
                 tb = traceback.format_exc()
-                msg = " Exception in: %s(%s)\n" % ( function_name, ("%s" % args)[1:-1] )
-                msg += " %s" % tb.replace("\n","\n  ").strip()
+                msg = " Exception in: %s(%s)\n" % (function_name, ("%s" % args)[1:-1])
+                msg += " %s" % tb.replace("\n", "\n  ").strip()
                 self.call_javascript("pyhtmlgui.debug_msg", [msg])
                 print(msg)
                 return_val = None
 
             if not ("skip_results" in message and message["skip_results"] is True):
-                websocketInstance.ws.send(json.dumps({ 'return': message['call'], 'value': return_val  }, default=lambda o: None))
+                websocketInstance.ws.send(
+                    json.dumps({'return': message['call'], 'value': return_val}, default=lambda o: None))
 
         elif 'return' in message:
             call_id = message['return']
-            del message['return'] # remove internal id from result before passing to next level
+            del message['return']  # remove internal id from result before passing to next level
             if call_id in websocketInstance.javascript_call_result_objects:
-                websocketInstance.javascript_call_result_objects[call_id]._result_received(websocketInstance, message)
+                websocketInstance.javascript_call_result_objects[call_id].result_received(websocketInstance, message)
         else:
             print('Invalid message received: ', message)
 
@@ -132,20 +138,20 @@ class PyHtmlGuiInstance():
         cbid = self._function_references.add(function)
         return cbid
 
-    def _get_template(self, item, force_reload = False):
+    def _get_template(self, item, force_reload=False):
         if force_reload is False:
             try:
                 return self._templateCache[item.__class__.__name__]
             except:
                 pass
 
-        if item.__class__.TEMPLATE_FILE is not None:   # load from file
-            file_to_monitor =  self._templateEnv.get_template(item.TEMPLATE_FILE).filename
+        if item.__class__.TEMPLATE_FILE is not None:  # load from file
+            file_to_monitor = self._templateEnv.get_template(item.TEMPLATE_FILE).filename
             string_to_render = open(file_to_monitor, "r").read()
-        else:   # load from class
+        else:  # load from class
             if self._pyHtmlGui.auto_reload is False:
                 string_to_render = item.TEMPLATE_STR
-                file_to_monitor  = None
+                file_to_monitor = None
             else:
                 module_name = item.__module__
                 if module_name is None or module_name == str.__class__.__module__:
@@ -161,7 +167,7 @@ class PyHtmlGuiInstance():
                 if module_name == "__main__":
                     name = os.path.splitext(os.path.basename(file_to_monitor))[0]
                     module = __import__(name)
-                    importlib.reload(module) # reload should work on non complex objects in __main__, but not for more
+                    importlib.reload(module)  # reload should work on non complex objects in __main__, but not for more
                     for comp in module_fullname.split(".")[1:]:
                         module = getattr(module, comp)
                 else:
@@ -197,7 +203,7 @@ class PyHtmlGuiInstance():
 
         return self._templateCache[item.__class__.__name__]
 
-    def clear_template_cache(self, classnames = None):
+    def clear_template_cache(self, classnames=None):
         if classnames is None:
             self._templateCache = {}
         else:
@@ -213,6 +219,7 @@ class PyHtmlGuiInstance():
     def _remove_child(self, child):
         self._children.remove(child)
 
+
 class JavascriptCallResult():
     def __init__(self, call_id):
         self.call_id = call_id
@@ -220,23 +227,24 @@ class JavascriptCallResult():
         self._results_missing = 0
         self._callback = None
 
-    def _add_call(self, websocketInstance):
+    def add_call(self, websocketInstance):
         websocketInstance.javascript_call_result_queues[self.call_id] = queue.Queue()
         self.websocketInstances.add(websocketInstance)
         self._results_missing += 1
 
-    def _result_received(self, websocketInstance, result):
+    def result_received(self, websocketInstance, result):
         websocketInstance.javascript_call_result_queues[self.call_id].put(result)
         self._results_missing -= 1
-        if self._results_missing == 0 and self._callback != None:
+        if self._results_missing == 0 and self._callback is not None:
             self._callback(self._collect_results())
 
     def _collect_results(self):
-        results  = []
+        results = []
         for websocketInstance in self.websocketInstances:
             results.append(websocketInstance.javascript_call_result_queues[self.call_id].get())
             del websocketInstance.javascript_call_result_queues[self.call_id]
-            del websocketInstance.javascript_call_result_objects[self.call_id]  # remove ourself from websocket callback list
+            del websocketInstance.javascript_call_result_objects[
+                self.call_id]  # remove ourself from websocket callback list
         errors = [result["error"] for result in results if "error" in result]
         if len(errors) > 0:
             msg = "%s of %s connected frontends returned an error\n" % (len(errors), len(results))
@@ -244,7 +252,7 @@ class JavascriptCallResult():
             raise Exception(msg)
         return [result["value"] for result in results]
 
-    def __call__(self, callback = None):
+    def __call__(self, callback=None):
         if callback is None:
             return self._collect_results()
         else:
