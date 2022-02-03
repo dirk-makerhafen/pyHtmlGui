@@ -15,8 +15,8 @@ from .lib import WeakFunctionReferences
 class PyHtmlGuiInstance():
     def __init__(self, pyHtmlGui):
         self._pyHtmlGui = pyHtmlGui
-        self._appInstance = pyHtmlGui.appInstance
-        self._appViewClass = pyHtmlGui.appViewClass
+        self._appInstance = pyHtmlGui.app_instance
+        self._appViewClass = pyHtmlGui.view_class
         self._templateLoader = pyHtmlGui._templateLoader
         self._add_file_to_monitor = pyHtmlGui._add_file_to_monitor
 

@@ -29,8 +29,8 @@ if __name__ == "__main__":
     package_json = json.loads(open(os.path.join(os.path.dirname(__file__),"package.json"),"r").read()) # so electron and we use the same values
     gui = PyHtmlGui(
         mode = "electron",
-        appInstance  = App(),
-        appViewClass = AppView,
+        app_instance= App(),
+        view_class= AppView,
         listen_host  = package_json["PYHTMLGUI_HOST"],
         listen_port   = package_json["PYHTMLGUI_PORT"],
         shared_secret = package_json["PYHTMLGUI_SECRET"],

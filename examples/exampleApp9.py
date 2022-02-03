@@ -65,7 +65,7 @@ class AppView(PyHtmlView):
 
 if __name__ == "__main__":
     gui = PyHtmlGui(
-        appInstance  = App(),
-        appViewClass = AppView,
+        app_instance= App(),
+        view_class= AppView,
     )
     gui.start(show_frontend=True, block=True)

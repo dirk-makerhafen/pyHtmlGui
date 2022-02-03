@@ -21,14 +21,12 @@ from .pyhtmlguiInstance import PyHtmlGuiInstance
 
 class PyHtmlGui():
     def __init__(self,
-                 appInstance,  # Some object (eg. main program class instance), passed to appViewClass as obj on launch
-                 appViewClass,  # A class that Inherits from PyHtmlView
+                 app_instance,  # Some object (eg. main program class instance), passed to view_class as obj on launch
+                 view_class,  # A class that Inherits from PyHtmlView
                  static_dir="",  # static files, css, img go here
                  template_dir="",  # main.html and other html goes here
-                 electron_app_dir=None,
-                 # in case we use electron, this is the electron.js file we launch, default file is in pyHtmlGui/assets/electron/main.py
-                 base_template="pyHtmlGuiBase.html",
-                 # pyHtmlGuiBase in pyHtmlGui/assets/templates, or custom file in app templates dir
+                 electron_app_dir=None,# in case we use electron, this is the electron.js file we launch, default file is in pyHtmlGui/assets/electron/main.py
+                 base_template="pyHtmlGuiBase.html",# pyHtmlGuiBase in pyHtmlGui/assets/templates, or custom file in app templates dir
                  on_frontend_ready=None,  # If gui connects call this
                  on_frontend_exit=None,  # If gui disconnects call this
                  size=(800, 600),  # window size
@@ -39,10 +37,10 @@ class PyHtmlGui():
                  listen_port=8000,
                  shared_secret="",  # use "" to automatically generate a uid internally, use None to disable token
                  auto_reload=False,  # for development, monitor files and reload while app is running
-                 single_instance=True # create only one instance and share it between all connected websockets, this is the default, so there is only one instance of appViewClass shared by all connected frntends
+                 single_instance=True  # create only one instance and share it between all connected websockets, this is the default, so there is only one instance of view_class shared by all connected frntends
                  ):
-        self.appViewClass = appViewClass
-        self.appInstance = appInstance
+        self.view_class = view_class
+        self.app_instance = app_instance
         self.static_dir = os.path.abspath(static_dir)
         self.template_dir = os.path.abspath(template_dir)
         self.on_frontend_ready_callback = on_frontend_ready

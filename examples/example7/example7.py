@@ -27,8 +27,8 @@ class AppView(PyHtmlView):
 
 if __name__ == "__main__":
     gui = PyHtmlGui(
-        appInstance     = App(),
-        appViewClass    = AppView,
+        app_instance= App(),
+        view_class= AppView,
         static_dir      = "examples_old/static",
         template_dir    = "examples_old/templates",
         base_template       = "window.html",

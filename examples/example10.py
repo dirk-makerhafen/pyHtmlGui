@@ -50,8 +50,8 @@ class AppView(PyHtmlView):
 
 if __name__ == "__main__":
     gui = PyHtmlGui(
-        appInstance     = App(),
-        appViewClass    = AppView,
+        app_instance= App(),
+        view_class= AppView,
         auto_reload     = True,
         single_instance = False, #
     )

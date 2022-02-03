@@ -65,8 +65,8 @@ if __name__ == "__main__":
     electron_exe = sys.argv[1]
     app = App()
     gui = PyHtmlGui(
-        appInstance   = app,
-        appViewClass  = AppView,
+        app_instance= app,
+        view_class= AppView,
         mode          = "electron",
         template_dir  = "templates",
         static_dir    = "static",

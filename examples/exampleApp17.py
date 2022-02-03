@@ -25,8 +25,8 @@ class App(Observable):
 
 if __name__ == "__main__":
     gui = PyHtmlGui(
-        appInstance  = App(),
-        appViewClass = AppView,
+        app_instance= App(),
+        view_class= AppView,
         auto_reload=True
     )
     gui.start(show_frontend=True, block=True)

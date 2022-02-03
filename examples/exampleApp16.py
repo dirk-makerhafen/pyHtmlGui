@@ -22,8 +22,8 @@ if __name__ == "__main__":
     electron_exe = sys.argv[1]
 
     gui = PyHtmlGui(
-        appInstance=App(),
-        appViewClass=AppView,
+        app_instance=App(),
+        view_class=AppView,
         listen_host=listen_host,
         listen_port=listen_port,
         mode="electron",
