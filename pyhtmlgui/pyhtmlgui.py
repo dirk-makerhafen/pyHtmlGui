@@ -7,7 +7,6 @@ import threading
 import time
 import traceback
 import uuid
-
 import bottle
 import bottle_websocket
 import jinja2
@@ -23,21 +22,21 @@ class PyHtmlGui():
     def __init__(self,
                  app_instance,  # Some object (eg. main program class instance), passed to view_class as obj on launch
                  view_class,  # A class that Inherits from PyHtmlView
-                 static_dir="",  # static files, css, img go here
-                 template_dir="",  # main.html and other html goes here
-                 electron_app_dir=None,# in case we use electron, this is the electron.js file we launch, default file is in pyHtmlGui/assets/electron/main.py
-                 base_template="pyHtmlGuiBase.html",# pyHtmlGuiBase in pyHtmlGui/assets/templates, or custom file in app templates dir
-                 on_frontend_ready=None,  # If gui connects call this
-                 on_frontend_exit=None,  # If gui disconnects call this
-                 size=(800, 600),  # window size
-                 position=None,  # window position
-                 mode="chrome",  # chrome | electron
-                 executable=None,  # path to chrome/electron executable, if needed
-                 listen_host="127.0.0.1",
-                 listen_port=8000,
-                 shared_secret="",  # use "" to automatically generate a uid internally, use None to disable token
-                 auto_reload=False,  # for development, monitor files and reload while app is running
-                 single_instance=True  # create only one instance and share it between all connected websockets, this is the default, so there is only one instance of view_class shared by all connected frntends
+                 static_dir = "",  # static files, css, img go here
+                 template_dir = "",  # main.html and other html goes here
+                 electron_app_dir = None,# in case we use electron, this is the electron.js file we launch, default file is in pyHtmlGui/assets/electron/main.py
+                 base_template = "pyHtmlGuiBase.html",# pyHtmlGuiBase in pyHtmlGui/assets/templates, or custom file in app templates dir
+                 on_frontend_ready = None,  # If gui connects call this
+                 on_frontend_exit = None,  # If gui disconnects call this
+                 size = (800, 600),  # window size
+                 position = None,  # window position
+                 mode = "chrome",  # chrome | electron
+                 executable = None,  # path to chrome/electron executable, if needed
+                 listen_host = "127.0.0.1",
+                 listen_port = 8000,
+                 shared_secret = "",  # use "" to automatically generate a uid internally, use None to disable token
+                 auto_reload = False,  # for development, monitor files and reload while app is running
+                 single_instance = True  # create only one instance and share it between all connected websockets, this is the default, so there is only one instance of view_class shared by all connected frntends
                  ):
         self.view_class = view_class
         self.app_instance = app_instance
@@ -74,8 +73,7 @@ class PyHtmlGui():
         if self.electron_app_dir is None:  # use default internal app
             self.electron_app_dir = self._electron_dir
         else:
-            if getattr(sys, 'frozen',
-                       False) is not True:  # if we are not frozen, copy our internal lib to the electron target dir if it does not exist
+            if getattr(sys, 'frozen', False) is not True:  # if we are not frozen, copy our internal lib to the electron target dir if it does not exist
                 for f in ["pyhtmlgui.js", "main.js"]:
                     lib_js_target = os.path.join(self.electron_app_dir, f)
                     lib_js_source = os.path.join(self._electron_dir, f)
@@ -87,8 +85,8 @@ class PyHtmlGui():
         if not os.path.exists(self.static_dir):
             raise Exception("Static dir '%s' not found" % self.static_dir)
 
-        self._templateLoader = jinja2.FileSystemLoader(searchpath=[self._template_dir, self.template_dir])
-        self._templateEnv = jinja2.Environment(loader=self._templateLoader)
+        self._template_loader = jinja2.FileSystemLoader(searchpath=[self._template_dir, self.template_dir])
+        self._template_env = jinja2.Environment(loader=self._template_loader)
 
         self._gui_instances = []
 
@@ -99,7 +97,7 @@ class PyHtmlGui():
         bottle.route("/static/<path:path>")(self._static)
         bottle.route("/ws", apply=[bottle_websocket.websocket])(self._websocket)
         self._browser = None
-        self._server = MyWebSocketServer(host=self.listen_host, port=self.listen_port)
+        self._server = WebsocketServer(host=self.listen_host, port=self.listen_port)
 
         self._file_monitoring = {}
         if self.auto_reload is True:
@@ -124,16 +122,18 @@ class PyHtmlGui():
 
     def show(self):
         env = None
+        target_host = "127.0.0.1" if self.listen_host is "0.0.0.0" else self.listen_host
+
         if self.mode == "electron":
             args = [self.electron_app_dir, ]
             env = os.environ.copy()
             env.update({
-                "PYHTMLGUI_HOST": self.listen_host,
+                "PYHTMLGUI_HOST": target_host,
                 "PYHTMLGUI_PORT": "%s" % self.listen_port,
                 "PYHTMLGUI_SECRET": self.shared_secret,
             })
         else:
-            args = ["%s:%s" % (self.listen_host, self.listen_port), ]
+            args = ["%s:%s" % (target_host, self.listen_port), ]
             if self.shared_secret is not None:
                 args[0] = "%s?token=%s" % (args[0], self.shared_secret)
         if self._browser is None:
@@ -144,7 +144,7 @@ class PyHtmlGui():
     def _main_html(self):
         if self.shared_secret is not None and bottle.request.query.token != self.shared_secret:
             return bottle.HTTPResponse(status=403)
-        template = self._templateEnv.get_template(self.base_template)
+        template = self._template_env.get_template(self.base_template)
         response = bottle.HTTPResponse(template.render({
             "csrf_token": self._token_csrf,
             "start_size": json.dumps(self.size),
@@ -168,14 +168,14 @@ class PyHtmlGui():
             return bottle.HTTPResponse(status=403)
         if bottle.request.query.token != self._token_csrf:
             return bottle.HTTPResponse(status=403)
-        websocketInstance = WebsocketInstance(ws)
+        websocket_connection = WebsocketConnection(ws)
         instance = self._get_gui_instance()
-        instance.websocket_loop(websocketInstance)  # loop while connected
+        instance.websocket_loop(websocket_connection)  # loop while connected
         self._release_gui_instance(instance)
 
     def _on_frontend_ready(self, pyHtmlGuiInstance):  # called by pyHtmlGuiInstance on frontend ready
         if self.on_frontend_ready_callback is not None:
-            nr_of_active_frontends = sum([instance.instances_count for instance in self._gui_instances])
+            nr_of_active_frontends = sum([instance.connections_count for instance in self._gui_instances])
             self.on_frontend_ready_callback(pyHtmlGuiInstance, nr_of_active_frontends)
 
     def _get_gui_instance(self):
@@ -189,12 +189,10 @@ class PyHtmlGui():
         return instance
 
     def _release_gui_instance(self, instance):
-        if instance.instances_count == 0:
+        if instance.connections_count == 0:
             self._gui_instances.remove(instance)
-
         if self.on_frontend_exit_callback is not None:
-            self.on_frontend_exit_callback(instance,
-                                           sum([instance.instances_count for instance in self._gui_instances]))
+            self.on_frontend_exit_callback(instance, sum([instance.connections_count for instance in self._gui_instances]))
 
     def _add_file_to_monitor(self, file_to_monitor, class_name):
         if self.auto_reload is False:
@@ -230,7 +228,7 @@ class PyHtmlGui():
                         print(traceback.format_exc())
 
 
-class MyWebSocketServer(bottle.ServerAdapter):
+class WebsocketServer(bottle.ServerAdapter):
     def run(self, handler):
         self.server = pywsgi.WSGIServer((self.host, self.port), handler, handler_class=WebSocketHandler)
         if not self.quiet:
@@ -240,7 +238,7 @@ class MyWebSocketServer(bottle.ServerAdapter):
         self.server.serve_forever()
 
 
-class WebsocketInstance():
+class WebsocketConnection():
     def __init__(self, ws):
         self.ws = ws
         self.javascript_call_result_queues = {}

@@ -30,9 +30,9 @@ class WeakFunctionReferences:
                 yield self.get(key)
 
     def _obj_died(self, callback_id):
+        # noinspection PyUnusedLocal
         def f(wr):
             del self.references[callback_id]
-
         return f
 
     @staticmethod

@@ -10,66 +10,59 @@ class PyHtmlView():
     WRAPPER_ELEMENT = "pyHtmlView"
     WRAPPER_EXTRAS = ""
 
-    def __init__(self, observedObject, parentView):
+    def __init__(self, subject, parent):
 
         # Component state and data
         self.uid = "%s" % uuid.uuid4()
         self.is_visible = False
         self._children = weakref.WeakSet()
 
-        # Weak references to  observedObject, parentView
-        if type(parentView) == weakref.ref:
-            parentView = parentView()
-        if type(observedObject) == weakref.ref:
-            observedObject = observedObject()
+        # Weak references to  subject, parent
+        if type(parent) == weakref.ref:
+            parent = parent()
+        if type(subject) == weakref.ref:
+            subject = subject()
 
-        self._observedObject_wref = None
-        self._parentView_wref = None
-        self._observedObject = None  # this is replace for a short time on render by the actual resolved object
-        if observedObject is not None:
-            self._observedObject_wref = weakref.ref(observedObject,
-                                                    self._on_observedObject_died)  # non gui object we reprecent or talk to
-        if parentView is not None:
-            parentView._add_child(self)
-            self._parentView_wref = weakref.ref(parentView, self._on_parentView_died)  # parent of this element
+        self._subject_wref = None
+        self._parent_wref = None
+        self._subject = None  # this is replace for a short time on render by the actual resolved object
+        if subject is not None:
+            self._subject_wref = weakref.ref(subject, self._on_subject_died)  # non gui object we reprecent or talk to
+        if parent is not None:
+            parent._add_child(self)
+            self._parent_wref = weakref.ref(parent, None)  # parent of this element
 
         # get template loader function from parent
-        self._get_template = parentView._get_template
+        self._get_template = parent._get_template
         self._was_rendered = True
         self._last_rendered = None  # timestamp of last rendering, for debug only
 
-        self._call_javascript = parentView._call_javascript  # root element gets this supplied by pyhtmlgui lib, else none
+        self._call_javascript = parent._call_javascript  # root element gets this supplied by pyhtmlgui lib, else none
         self._observables = []
 
         # attach default observation event and detach because default componens is invisible until rendered
-        if self._on_observedObject_updated is not None:
+        if self._on_subject_updated is not None:
             try:
-                self.add_observable(self.observedObject)
+                self.add_observable(self.subject)
             except Exception as e:  # detach all will thow an exception if the event can not be attached
                 print(e)
-                print("object type '%s' can not be observed" % type(observedObject))
+                print("object type '%s' can not be observed" % type(subject))
 
     @property
-    def observedObject(self):
-        if self._observedObject is not None:
-            return self._observedObject
-        return self._observedObject_wref()
+    def subject(self):
+        if self._subject is not None:
+            return self._subject
+        return self._subject_wref()
 
     @property
-    def parentView(self):
-        return self._parentView_wref()
+    def parent(self):
+        return self._parent_wref()
 
-    def _on_observedObject_updated(self, source, **kwargs):
+    def _on_subject_updated(self, source, **kwargs):
         self.update()
 
-    def _on_observedObject_died(self, wr):
-        print("observedObject died", wr)
+    def _on_subject_died(self, wr):
         self.delete()
-        # raise NotImplementedError()
-
-    def _on_parentView_died(self, wr):
-        print("Parent died", wr)
-        raise NotImplementedError()
 
     # return html string rendered from template
     # automatically set component to visible
@@ -106,7 +99,7 @@ class PyHtmlView():
         if self.is_visible is True and already_removed_from_dom is False:
             self.call_javascript("pyhtmlgui.remove_element", [self.uid], skip_results=True)
         self.set_visible(False)
-        self.parentView._remove_child(self)
+        self.parent._remove_child(self)
         for child in self._children:
             child.delete(already_removed_from_dom=True)
 
@@ -133,7 +126,8 @@ class PyHtmlView():
                 except:
                     pass
 
-    # function so we have function arguments name completion in editor, in theorie we could directly use self._call_javascript
+    # function so we have function arguments name completion in editor,
+    # in theorie we could directly use self._call_javascript
     def call_javascript(self, js_function_name, args, skip_results=False):
         return self._call_javascript(js_function_name, args, skip_results)
 
@@ -149,14 +143,18 @@ class PyHtmlView():
         return self.call_javascript("electron.eval_script", [script, kwargs], skip_results=skip_results)
 
     def _inner_html(self):
-        self._observedObject = self.observedObject  # receive hard reference to obj to it does not die on us while rendering
-        if self._observedObject is None:  # Observed oject died before render
+        self._subject = self.subject  # receive hard reference to obj to it does not die on us while rendering
+        if self._subject is None:  # Observed oject died before render
             return None
-        self.set_visible(
-            True)  # It should be ok to set visible here, althou this is befor the rendered object actually appeart in the dom. However, it should arrive at to dom before any other things that might be triggered because the object is visible, because of the websocket event loop
-        for child in self._children: child._was_rendered = False
+        # It should be ok to set visible here, althou this is befor the rendered object actually appeart in the dom.
+        # However, it should arrive at to dom before any other things that might be triggered because the object is visible,
+        # because of the websocket event loop
+        self.set_visible(True)
+        for child in self._children:
+            child._was_rendered = False
+
         try:
-            html = self._get_template(self).render({"this": self})
+            html = self._get_template(self).render({"pyview": self})
         except Exception as e:
             tb = traceback.format_exc()
             msg = " Exception while rendering Template: %s\n" % self.__class__.__name__
@@ -165,10 +163,11 @@ class PyHtmlView():
             html = msg
             print(msg)
 
-        [c.set_visible(False) for c in self._children if
-         c._was_rendered is False and c.is_visible is True]  # set children that have not been rendered in last pass to invisible
+        # set children that have not been rendered in last pass to invisible
+        [c.set_visible(False) for c in self._children if c._was_rendered is False and c.is_visible is True]
+
         self._was_rendered = True
-        self._observedObject = None  # remove hard reference to observedobject, it may die now
+        self._subject = None  # remove hard reference to subject, it may die now
         return html
 
     def _add_child(self, child):
@@ -177,30 +176,30 @@ class PyHtmlView():
     def _remove_child(self, child):
         self._children.remove(child)
 
-    # default targetFunction is  self._on_observedObject_updated
-    def add_observable(self, observableObject, targetFunction=None):
+    # default target_function is  self._on_subject_updated
+    def add_observable(self, subject, target_function=None):
         try:
-            if not callable(observableObject.attach_observer) or not callable(observableObject.detach_observer):
-                raise Exception("object type '%s' can not be observed" % type(observableObject))
+            if not callable(subject.attach_observer) or not callable(subject.detach_observer):
+                raise Exception("object type '%s' can not be observed" % type(subject))
         except:
-            raise Exception("object type '%s' can not be observed" % type(observableObject))
-        if targetFunction is None:
-            targetFunction = self._on_observedObject_updated
+            raise Exception("object type '%s' can not be observed" % type(subject))
+        if target_function is None:
+            target_function = self._on_subject_updated
 
-        if type(observableObject) != weakref.ref:
-            observableObject = weakref.ref(observableObject)
-        if type(targetFunction) != weakref.WeakMethod:
-            targetFunction = weakref.WeakMethod(targetFunction)
-        self._observables.append([observableObject, targetFunction])
+        if type(subject) != weakref.ref:
+            subject = weakref.ref(subject)
+        if type(target_function) != weakref.WeakMethod:
+            target_function = weakref.WeakMethod(target_function)
+        self._observables.append([subject, target_function])
 
-    def remove_observable(self, observableObject, targetFunction=None):
-        if targetFunction is None:
-            targetFunction = self._on_observedObject_updated
+    def remove_observable(self, subject, target_function=None):
+        if target_function is None:
+            target_function = self._on_subject_updated
         to_remove = []
         for e in self._observables:
-            e_observableObject, e_targetFunction = e
-            if observableObject == e_observableObject():
-                if targetFunction is None or targetFunction == e_targetFunction():
+            e_subject, e_target_function = e
+            if subject == e_subject():
+                if target_function is None or target_function == e_target_function():
                     to_remove.append(e)
         for e in to_remove:
             self._observables.remove(e)

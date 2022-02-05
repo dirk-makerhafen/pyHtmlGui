@@ -15,26 +15,24 @@ from .lib import WeakFunctionReferences
 class PyHtmlGuiInstance():
     def __init__(self, pyHtmlGui):
         self._pyHtmlGui = pyHtmlGui
-        self._appInstance = pyHtmlGui.app_instance
-        self._appViewClass = pyHtmlGui.view_class
-        self._templateLoader = pyHtmlGui._templateLoader
+        self._app_instance = pyHtmlGui.app_instance
+        self._view_class = pyHtmlGui.view_class
+        self._template_loader = pyHtmlGui._template_loader
         self._add_file_to_monitor = pyHtmlGui._add_file_to_monitor
-
-        self._websocketInstances = []
+        self._websocket_connections = []
         self._children = weakref.WeakSet()
-        self._templateEnv = jinja2.Environment(loader=self._templateLoader)
-        self._templateCache = {}
+        self._template_env = jinja2.Environment(loader=self._template_loader)
+        self._template_cache = {}
         self._call_number = 0
         self._call_javascript = self.call_javascript  # so the call_javascript function in view is available
         self._function_references = WeakFunctionReferences()
+        self._template_env.globals['_create_py_function_reference'] = self._create_function_reference
 
-        self._templateEnv.globals['_create_py_function_reference'] = self._create_function_reference
-
-        self.view = self._appViewClass(self._appInstance, self)
+        self.view = self._view_class(self._app_instance, self)
 
     @property
-    def instances_count(self):
-        return len(self._websocketInstances)
+    def connections_count(self):
+        return len(self._websocket_connections)
 
     def update(self):
         self.call_javascript("pyhtmlgui.update_element", ["pyHtmlGuiBody", self.view.render()], skip_results=True)
@@ -49,12 +47,14 @@ class PyHtmlGuiInstance():
     # CALL JS FROM PY
     def call_javascript(self, js_function_name, args, skip_results=False):
         self._call_number += 1
-        to_delete = self._call_number - 100  # clean old function references, this is needed to results don't stay around if you don't set skip_results=True and don't use the result.
-        for websocketInstance in self._websocketInstances:
-            if to_delete in websocketInstance.javascript_call_result_objects:
-                del websocketInstance.javascript_call_result_objects[to_delete]
-            if to_delete in websocketInstance.javascript_call_result_queues:
-                del websocketInstance.javascript_call_result_queues[to_delete]
+        to_delete = self._call_number - 100
+        # clean old function references, this is needed to results don't stay around if you don't
+        # set skip_results=True and don't use the result.
+        for websocket_connection in self._websocket_connections:
+            if to_delete in websocket_connection.javascript_call_result_objects:
+                del websocket_connection.javascript_call_result_objects[to_delete]
+            if to_delete in websocket_connection.javascript_call_result_queues:
+                del websocket_connection.javascript_call_result_queues[to_delete]
 
         javascript_call_object = {'call': self._call_number, 'name': js_function_name, 'args': args}
 
@@ -65,28 +65,28 @@ class PyHtmlGuiInstance():
             javascriptCallResult = JavascriptCallResult(self._call_number)
 
         data = json.dumps(javascript_call_object, default=lambda o: None)
-        for websocketInstance in self._websocketInstances:
+        for websocket_connection in self._websocket_connections:
             if skip_results is False:
-                websocketInstance.javascript_call_result_objects[self._call_number] = javascriptCallResult
-                javascriptCallResult.add_call(websocketInstance)
-            websocketInstance.ws.send(data)
+                websocket_connection.javascript_call_result_objects[self._call_number] = javascriptCallResult
+                javascriptCallResult.add_call(websocket_connection)
+            websocket_connection.ws.send(data)
         return javascriptCallResult
 
     # MESSAGES FROM JS TO PY
-    def websocket_loop(self, websocketInstance):
-        self._websocketInstances.append(websocketInstance)
+    def websocket_loop(self, websocket_connection):
+        self._websocket_connections.append(websocket_connection)
         while True:
-            msg = websocketInstance.ws.receive()
+            msg = websocket_connection.ws.receive()
             if msg is not None:
                 message = json.loads(msg)
-                gevent.spawn(self._websocket_process_message, message, websocketInstance).run()
+                gevent.spawn(self._websocket_process_message, message, websocket_connection).run()
             else:
                 break
-        self._websocketInstances.remove(websocketInstance)
-        if len(self._websocketInstances) == 0:
+        self._websocket_connections.remove(websocket_connection)
+        if len(self._websocket_connections) == 0:
             self.set_visible(False)
 
-    def _websocket_process_message(self, message, websocketInstance):
+    def _websocket_process_message(self, message, websocket_connection):
         if 'call' in message:
             function_name = "Function not found"
             args = "  "
@@ -121,14 +121,14 @@ class PyHtmlGuiInstance():
                 return_val = None
 
             if not ("skip_results" in message and message["skip_results"] is True):
-                websocketInstance.ws.send(
-                    json.dumps({'return': message['call'], 'value': return_val}, default=lambda o: None))
+                data = json.dumps({'return': message['call'], 'value': return_val}, default=lambda o: None)
+                websocket_connection.ws.send(data)
 
         elif 'return' in message:
             call_id = message['return']
             del message['return']  # remove internal id from result before passing to next level
-            if call_id in websocketInstance.javascript_call_result_objects:
-                websocketInstance.javascript_call_result_objects[call_id].result_received(websocketInstance, message)
+            if call_id in websocket_connection.javascript_call_result_objects:
+                websocket_connection.javascript_call_result_objects[call_id].result_received(websocket_connection, message)
         else:
             print('Invalid message received: ', message)
 
@@ -141,12 +141,12 @@ class PyHtmlGuiInstance():
     def _get_template(self, item, force_reload=False):
         if force_reload is False:
             try:
-                return self._templateCache[item.__class__.__name__]
+                return self._template_cache[item.__class__.__name__]
             except:
                 pass
 
         if item.__class__.TEMPLATE_FILE is not None:  # load from file
-            file_to_monitor = self._templateEnv.get_template(item.TEMPLATE_FILE).filename
+            file_to_monitor = self._template_env.get_template(item.TEMPLATE_FILE).filename
             string_to_render = open(file_to_monitor, "r").read()
         else:  # load from class
             if self._pyHtmlGui.auto_reload is False:
@@ -181,17 +181,16 @@ class PyHtmlGuiInstance():
         if self._pyHtmlGui.auto_reload is True:
             self._add_file_to_monitor(file_to_monitor, item.__class__.__name__)
 
-        # replace pyhtmlgui.call(python_function, "arg1") with pyhtmlgui.call({{_create_py_function_reference(python_function)}}, "arg1")
+        #  replace onclick="pyview.my_function(arg1,arg2)"
+        #  with    onclick="pyhtmlgui.call({{_create_py_function_reference(pyview.my_function)}}, arg1, arg2)
         # this a a convinience function is user does not have to type the annoying stuff and functions look cleaner
-        parts = re.split(r'(>| |\(|=|\"|\'|\n|\r|\t|;)(pyhtmlgui\.call\(.+?)(,|\))', string_to_render)
-        for i in [i for i, part in enumerate(parts) if part.startswith("pyhtmlgui.call(")]:
-            parts[i] = "pyhtmlgui.call({{_create_py_function_reference(%s)}}" % parts[i][15:]
-        string_to_render = "".join(parts)
+        string_to_render = self._prepare_template(string_to_render)
 
-        # use \pyhtmlgui.call to excape pyhtmlgui.call in case of for example <div>Usage: pyhtmlgui.call(this.foobar, "arg1") </div> where the function should not be called
-        string_to_render = string_to_render.replace('\pyhtmlgui.call(', 'pyhtmlgui.call(')
+        # use \pyhtmlgui.call to excape pyhtmlgui.call in case of for example <div>Usage: pyhtmlgui.call(this.foobar, "arg1") </div>
+        # where the function should not be called
+        string_to_render = string_to_render.replace('\pyview.', '\pyview.')
         try:
-            self._templateCache[item.__class__.__name__] = self._templateEnv.from_string(string_to_render)
+            self._template_cache[item.__class__.__name__] = self._template_env.from_string(string_to_render)
         except Exception as e:
             msg = "Failed to load Template "
             if item.TEMPLATE_FILE is not None:
@@ -201,15 +200,72 @@ class PyHtmlGuiInstance():
             msg += " %s" % e
             raise Exception(msg)
 
-        return self._templateCache[item.__class__.__name__]
+        return self._template_cache[item.__class__.__name__]
+
+    #  replace onclick="pyview.my_function(arg1,arg2)"
+    #  with    onclick="pyhtmlgui.call({{_create_py_function_reference(pyview.my_function)}}, arg1, arg2)
+    # this a a convinience function is user does not have to type the annoying stuff and functions look cleaner
+    def _prepare_template(self, template):
+        parts = template.split("{%")
+        for i in range(1, len(parts)):
+            parts[i] = "{%%%s" % parts[i]
+
+        new_parts = []
+        for part in parts:
+            if not part.startswith("{%"):
+                new_parts.append(part)
+            else:
+                parts1 = part.split("%}")
+                if len(parts1) > 1:
+                    parts1[0] = "%s%%}" % parts1[0]
+                for p in parts1:
+                    new_parts.append(p)
+
+        parts = new_parts
+        new_parts = []
+        for part in parts:
+            parts1 = part.split("{{")
+            for i in range(1, len(parts1)):
+                parts1[i] = "{{%s" % parts1[i]
+            for p in parts1:
+                new_parts.append(p)
+
+        parts = new_parts
+        new_parts = []
+        for part in parts:
+            if not part.startswith("{{"):
+                new_parts.append(part)
+            else:
+                parts1 = part.split("}}")
+                if len(parts1) > 1:
+                    parts1[0] = "%s}}" % parts1[0]
+                for p in parts1:
+                    new_parts.append(p)
+
+        parts = new_parts
+        new_parts = []
+        for i, part in enumerate(parts):
+            if part.startswith("{{") or part.startswith("{%") or part.find("pyview.") == -1:
+                new_parts.append(part)
+            else:
+                subparts = re.split(r'(>| |\(|=|\"|\'|\n|\r|\t|;)(pyview.[a-zA-Z0-9_.]+\()', part)
+                for x, subpart in enumerate(subparts):
+                    if subpart.startswith("pyview."):
+                        subpart = subpart.replace("(", ")}}, ", 1)
+                        subparts[x] = "pyhtmlgui.call({{_create_py_function_reference(%s" % subpart
+                for sp in subparts:
+                    new_parts.append(sp)
+
+        str = "".join(new_parts).replace('\pyview.', 'pyview.')
+        return str
 
     def clear_template_cache(self, classnames=None):
         if classnames is None:
-            self._templateCache = {}
+            self._template_cache = {}
         else:
             for classname in classnames:
                 try:
-                    del self._templateCache[classname]
+                    del self._template_cache[classname]
                 except:
                     pass
 
@@ -223,28 +279,27 @@ class PyHtmlGuiInstance():
 class JavascriptCallResult():
     def __init__(self, call_id):
         self.call_id = call_id
-        self.websocketInstances = weakref.WeakSet()
+        self.websocket_connections = weakref.WeakSet()
         self._results_missing = 0
         self._callback = None
 
-    def add_call(self, websocketInstance):
-        websocketInstance.javascript_call_result_queues[self.call_id] = queue.Queue()
-        self.websocketInstances.add(websocketInstance)
+    def add_call(self, websocket_connection):
+        websocket_connection.javascript_call_result_queues[self.call_id] = queue.Queue()
+        self.websocket_connections.add(websocket_connection)
         self._results_missing += 1
 
-    def result_received(self, websocketInstance, result):
-        websocketInstance.javascript_call_result_queues[self.call_id].put(result)
+    def result_received(self, websocket_connection, result):
+        websocket_connection.javascript_call_result_queues[self.call_id].put(result)
         self._results_missing -= 1
         if self._results_missing == 0 and self._callback is not None:
             self._callback(self._collect_results())
 
     def _collect_results(self):
         results = []
-        for websocketInstance in self.websocketInstances:
-            results.append(websocketInstance.javascript_call_result_queues[self.call_id].get())
-            del websocketInstance.javascript_call_result_queues[self.call_id]
-            del websocketInstance.javascript_call_result_objects[
-                self.call_id]  # remove ourself from websocket callback list
+        for websocket_connection in self.websocket_connections:
+            results.append(websocket_connection.javascript_call_result_queues[self.call_id].get())
+            del websocket_connection.javascript_call_result_queues[self.call_id]
+            del websocket_connection.javascript_call_result_objects[self.call_id]  # remove ourself from websocket callback list
         errors = [result["error"] for result in results if "error" in result]
         if len(errors) > 0:
             msg = "%s of %s connected frontends returned an error\n" % (len(errors), len(results))

@@ -27,9 +27,9 @@ class ObservableList(list, Observable):
             index = key.start
         else:
             index = key
-        oldItem = list.__getitem__(self, key)
+        old_item = list.__getitem__(self, key)
         list.__setitem__(self, key, value)
-        self.notify_observers(action="setitem", index=index, oldItem=oldItem, newItem=value)
+        self.notify_observers(action="setitem", index=index, old_item=old_item, new_item=value)
 
     def __delitem__(self, i):
         if isinstance(i, slice):
@@ -41,16 +41,16 @@ class ObservableList(list, Observable):
         self.notify_observers(action="delitem", index=index, item=item)
 
     def extend(self, seq):
-        insertIndex = len(self)
+        insert_index = len(self)
         list.extend(self, seq)
-        self.notify_observers(action="extend", index=insertIndex, items=seq)
+        self.notify_observers(action="extend", index=insert_index, items=seq)
 
     def pop(self, index=-1):
-        removedIndex = index
+        removed_index = index
         if (index == -1):
-            removedIndex = len(self) - 1
+            removed_index = len(self) - 1
         value = list.pop(self, index)
-        self.notify_observers(action="pop", index=removedIndex, item=value)
+        self.notify_observers(action="pop", index=removed_index, item=value)
         return value
 
     def remove(self, obj):
