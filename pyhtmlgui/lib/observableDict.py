@@ -1,5 +1,6 @@
 from .observable import Observable
 
+
 class ObservableDict(dict, Observable):
 
     def __init__(self, *args, **kwargs):

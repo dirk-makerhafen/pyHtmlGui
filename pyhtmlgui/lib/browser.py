@@ -5,7 +5,7 @@ import whichcraft
 import webbrowser
 
 
-class Browser():
+class Browser:
     def __init__(self, browsername="default", executable=None):
         self.browsername = browsername
         self.executable = executable
@@ -19,21 +19,21 @@ class Browser():
         else:
             raise Exception("Unknown mode '%s', use 'default' for system browser or 'chrome' or 'electron'")
 
-    def open(self, browser_args, **kwargs):
+    def open(self, browser_args, **kwargs) -> None:
         self.browserInstance.run(browser_args, **kwargs)
 
 
-class BrowserDefault():
+class BrowserDefault:
     def __init__(self):
         pass
 
     @staticmethod
-    def run(browser_args, **kwargs):
+    def run(browser_args, **kwargs) -> None:
         webbrowser.open(browser_args)
 
 
-class BrowserElectron():
-    def __init__(self, executable):
+class BrowserElectron:
+    def __init__(self, executable: str) -> None:
         self.executable = executable
         if self.executable is None:
             self.executable = self._find_path()
@@ -42,7 +42,7 @@ class BrowserElectron():
         if not os.path.isfile(self.executable):
             raise Exception("Electron executable could not be found at '%s'" % self.executable)
 
-    def run(self, browser_args, env=None, **kwargs):
+    def run(self, browser_args, env=None, **kwargs) -> None:
         if env is None:
             env = os.environ.copy()
         cmd = [
@@ -66,8 +66,8 @@ class BrowserElectron():
             return None
 
 
-class BrowserChrome():
-    def __init__(self, executable):
+class BrowserChrome:
+    def __init__(self, executable: str) -> None:
         self.executable = executable
         if self.executable is None:
             self.executable = self._find_path()
@@ -76,14 +76,12 @@ class BrowserChrome():
         if not os.path.isfile(self.executable):
             raise Exception("Chrome executable could not be found at '%s'" % self.executable)
 
-    def run(self, browser_args, env=None, **kwargs):
+    def run(self, browser_args, env=None, **kwargs) -> None:
         start_url = browser_args[0]
         if not browser_args[0].startswith("http"):
             start_url = "http://" + start_url
         cmd = [
             self.executable,
-            # '--no-sandbox',
-            # '--disable-http-cache',
             start_url,
         ]
         subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr, stdin=subprocess.PIPE)

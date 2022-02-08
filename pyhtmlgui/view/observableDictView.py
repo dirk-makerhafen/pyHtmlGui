@@ -1,5 +1,7 @@
+import typing
 from threading import Lock
 from .pyhtmlview import PyHtmlView
+from .. import ObservableDict
 
 
 class ObservableDictView(PyHtmlView):
@@ -9,7 +11,15 @@ class ObservableDictView(PyHtmlView):
         {% endfor %}
     '''
 
-    def __init__(self, subject, parent, item_class, wrapper_element=PyHtmlView.WRAPPER_ELEMENT, sort_key=None, sort_reverse=False, **kwargs):
+    def __init__(self,
+                 subject        : ObservableDict,
+                 parent         : PyHtmlView,
+                 item_class     : type[PyHtmlView],
+                 wrapper_element: str             = PyHtmlView.WRAPPER_ELEMENT,
+                 sort_key       : typing.Callable = None,
+                 sort_reverse   : bool            = False,
+                 **kwargs):
+
         self._item_class = item_class
         self.WRAPPER_ELEMENT = wrapper_element
         self._kwargs = kwargs
@@ -19,19 +29,20 @@ class ObservableDictView(PyHtmlView):
         self.sort_reverse = sort_reverse
         super().__init__(subject, parent)
 
-    def set_visible(self, visible):
+    def set_visible(self, visible: bool) -> None:
         if self.is_visible == visible:  # not changed
             return
         self._wrapped_data_lock.acquire()
         super().set_visible(visible)
         self._wrapped_data = {}
-        if self.is_visible is True:  # was set to invisible
+        if self.is_visible is True:
+            # is we were invisible, we might have missed add/delete events, so recreate our data wrapper
             for kv in self.subject.items():
                 key, item = kv
                 self._wrapped_data[key] = self._create_item(item, key)
         self._wrapped_data_lock.release()
 
-    def get_items(self):
+    def get_items(self) -> list:
         items = [item for key, item in self._wrapped_data.items()]
         if self.sort_key is None:
             return sorted(items, key=lambda x: x.item_key)
@@ -43,7 +54,7 @@ class ObservableDictView(PyHtmlView):
         obj.item_key = key
         return obj
 
-    def _on_subject_updated(self, source, **kwargs):
+    def _on_subject_updated(self, source, **kwargs) -> None:
         try:
             self._wrapped_data_lock.acquire()
 

@@ -10,34 +10,58 @@ import uuid
 import bottle
 import bottle_websocket
 import jinja2
+import typing
 from gevent import pywsgi
 from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket.logging import create_logger
-
 from .lib import Browser
 from .pyhtmlguiInstance import PyHtmlGuiInstance
+from .view import PyHtmlView
 
 
-class PyHtmlGui():
+class PyHtmlGui:
     def __init__(self,
-                 app_instance,  # Some object (eg. main program class instance), passed to view_class as obj on launch
-                 view_class,  # A class that Inherits from PyHtmlView
-                 static_dir = "",  # static files, css, img go here
-                 template_dir = "",  # main.html and other html goes here
-                 electron_app_dir = None,# in case we use electron, this is the electron.js file we launch, default file is in pyHtmlGui/assets/electron/main.py
-                 base_template = "pyHtmlGuiBase.html",# pyHtmlGuiBase in pyHtmlGui/assets/templates, or custom file in app templates dir
-                 on_frontend_ready = None,  # If gui connects call this
-                 on_frontend_exit = None,  # If gui disconnects call this
-                 size = (800, 600),  # window size
-                 position = None,  # window position
-                 mode = "chrome",  # chrome | electron
-                 executable = None,  # path to chrome/electron executable, if needed
-                 listen_host = "127.0.0.1",
-                 listen_port = 8000,
-                 shared_secret = "",  # use "" to automatically generate a uid internally, use None to disable token
-                 auto_reload = False,  # for development, monitor files and reload while app is running
-                 single_instance = True  # create only one instance and share it between all connected websockets, this is the default, so there is only one instance of view_class shared by all connected frntends
-                 ):
+                 app_instance     : object,
+                 view_class       : typing.Type[PyHtmlView],
+                 static_dir       : str             = "",
+                 template_dir     : str             = "",
+                 electron_app_dir : str             = None,
+                 base_template    : str             = "pyHtmlGuiBase.html",
+                 on_frontend_ready: typing.Callable = None,
+                 on_frontend_exit : typing.Callable = None,
+                 size             : object          = (800, 600),
+                 position         : object          = None,
+                 mode             : str             = "chrome",
+                 executable       : str             = None,
+                 listen_host      : str             = "127.0.0.1",
+                 listen_port      : int             = 8000,
+                 shared_secret    : str             = "",
+                 auto_reload      : bool            = False,
+                 single_instance  : bool            = True
+                 ) -> None:
+        """
+        :param app_instance: Some object (eg. main program class instance), passed to view_class as obj on launch
+        :type  app_instance: object
+        :param view_class: A class that Inherits from PyHtmlView
+        :param static_dir:  static files, css, img go here
+        :param template_dir: main.html and other html goes here
+        :param electron_app_dir: in case we use electron, this is the electron.js file we launch,
+                                 default file is in pyHtmlGui/assets/electron/main.py
+        :param base_template: pyHtmlGuiBase in pyHtmlGui/assets/templates, or custom file in app templates dir
+        :param on_frontend_ready:  If gui connects call this
+        :param on_frontend_exit: If gui disconnects call this
+        :param size:  window size
+        :param position:  window position
+        :param mode: chrome | electron
+        :param executable:  path to chrome/electron executable, if needed
+        :param listen_host:
+        :param listen_port:
+        :param shared_secret:  use "" to automatically generate a uid internally, use None to disable token
+        :param auto_reload:  for development, monitor files and reload while app is running
+        :param single_instance: create only one instance and share it between all connected websockets.
+                                This is the default, so one instance of view_class is shared by all connected frontends
+        """
+
         self.view_class = view_class
         self.app_instance = app_instance
         self.static_dir = os.path.abspath(static_dir)
@@ -62,7 +86,7 @@ class PyHtmlGui():
         self.single_instance = single_instance
 
         if getattr(sys, 'frozen', False) is True:  # check if we are bundled by pyinstaller
-            # noinspection PyProtectedMember
+            # noinspection PyUnresolvedReferences,PyProtectedMember
             lib_dir = os.path.join(sys._MEIPASS, "pyhtmlgui")
             self.auto_reload = False
         else:
@@ -73,7 +97,8 @@ class PyHtmlGui():
         if self.electron_app_dir is None:  # use default internal app
             self.electron_app_dir = self._electron_dir
         else:
-            if getattr(sys, 'frozen', False) is not True:  # if we are not frozen, copy our internal lib to the electron target dir if it does not exist
+            if getattr(sys, 'frozen', False) is not True:
+                # if we are not frozen, copy our internal lib to the electron target dir if it does not exist
                 for f in ["pyhtmlgui.js", "main.js"]:
                     lib_js_target = os.path.join(self.electron_app_dir, f)
                     lib_js_source = os.path.join(self._electron_dir, f)
@@ -85,8 +110,8 @@ class PyHtmlGui():
         if not os.path.exists(self.static_dir):
             raise Exception("Static dir '%s' not found" % self.static_dir)
 
-        self._template_loader = jinja2.FileSystemLoader(searchpath=[self._template_dir, self.template_dir])
-        self._template_env = jinja2.Environment(loader=self._template_loader)
+        self.template_loader = jinja2.FileSystemLoader(searchpath=[self._template_dir, self.template_dir])
+        self._template_env = jinja2.Environment(loader=self.template_loader)
 
         self._gui_instances = []
 
@@ -104,7 +129,7 @@ class PyHtmlGui():
             t = threading.Thread(target=self._monitoring_thread, daemon=True)
             t.start()
 
-    def start(self, show_frontend=False, block=True):
+    def start(self, show_frontend: bool = False, block: bool = True) -> None:
         if show_frontend is True:
             self.show()
 
@@ -114,15 +139,16 @@ class PyHtmlGui():
             t = threading.Thread(target=self._server.run, args=[bottle.default_app()], daemon=True)
             t.start()
 
-    def stop(self):
+    def stop(self) -> None:
+        # noinspection PyBroadException
         try:
             self._server.server.stop()
-        except:
+        except Exception:
             pass
 
-    def show(self):
+    def show(self) -> None:
         env = None
-        target_host = "127.0.0.1" if self.listen_host is "0.0.0.0" else self.listen_host
+        target_host = "127.0.0.1" if self.listen_host == "0.0.0.0" else self.listen_host
 
         if self.mode == "electron":
             args = [self.electron_app_dir, ]
@@ -155,7 +181,7 @@ class PyHtmlGui():
         return response
 
     # /static/<path>/<path>
-    def _static(self, path):
+    def _static(self, path: str):
         if bottle.request.get_cookie("token") != self._token_cookie:
             return bottle.HTTPResponse(status=403)
         response = bottle.static_file(path, root=self.static_dir)
@@ -173,12 +199,12 @@ class PyHtmlGui():
         instance.websocket_loop(websocket_connection)  # loop while connected
         self._release_gui_instance(instance)
 
-    def _on_frontend_ready(self, pyHtmlGuiInstance):  # called by pyHtmlGuiInstance on frontend ready
+    def on_frontend_ready(self, instance: PyHtmlGuiInstance) -> None:  # called by pyHtmlGuiInstance on frontend ready
         if self.on_frontend_ready_callback is not None:
             nr_of_active_frontends = sum([instance.connections_count for instance in self._gui_instances])
-            self.on_frontend_ready_callback(pyHtmlGuiInstance, nr_of_active_frontends)
+            self.on_frontend_ready_callback(instance, nr_of_active_frontends)
 
-    def _get_gui_instance(self):
+    def _get_gui_instance(self) -> PyHtmlGuiInstance:
         if self.single_instance is True:
             if len(self._gui_instances) == 0:
                 self._gui_instances.append(PyHtmlGuiInstance(self))
@@ -188,13 +214,14 @@ class PyHtmlGui():
             self._gui_instances.append(instance)
         return instance
 
-    def _release_gui_instance(self, instance):
+    def _release_gui_instance(self, instance: PyHtmlGuiInstance) -> None:
         if instance.connections_count == 0:
             self._gui_instances.remove(instance)
         if self.on_frontend_exit_callback is not None:
-            self.on_frontend_exit_callback(instance, sum([instance.connections_count for instance in self._gui_instances]))
+            cnt = sum([instance.connections_count for instance in self._gui_instances])
+            self.on_frontend_exit_callback(instance, cnt)
 
-    def _add_file_to_monitor(self, file_to_monitor, class_name):
+    def add_file_to_monitor(self, file_to_monitor, class_name) -> None:
         if self.auto_reload is False:
             return
         if file_to_monitor not in self._file_monitoring:
@@ -206,7 +233,7 @@ class PyHtmlGui():
             }
         self._file_monitoring[file_to_monitor]["class_names"].add(class_name)
 
-    def _monitoring_thread(self):
+    def _monitoring_thread(self) -> None:
         while self.auto_reload is True:
             time.sleep(5)
             has_changed = False
@@ -223,12 +250,16 @@ class PyHtmlGui():
                     instance.clear_template_cache(classed_to_reload)
                     try:
                         instance.update()
-                    except Exception as e:
+                    except Exception:
                         print("Failed to Update")
                         print(traceback.format_exc())
 
 
 class WebsocketServer(bottle.ServerAdapter):
+    def __init__(self, **options):
+        super().__init__(**options)
+        self.server = None
+
     def run(self, handler):
         self.server = pywsgi.WSGIServer((self.host, self.port), handler, handler_class=WebSocketHandler)
         if not self.quiet:
@@ -238,7 +269,7 @@ class WebsocketServer(bottle.ServerAdapter):
         self.server.serve_forever()
 
 
-class WebsocketConnection():
+class WebsocketConnection:
     def __init__(self, ws):
         self.ws = ws
         self.javascript_call_result_queues = {}

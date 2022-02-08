@@ -28,8 +28,9 @@ class CounterAppView(PyHtmlView):
     TEMPLATE_STR = '''
         Current value: {{ pyview.subject.value }} <br>
         <button onclick='pyview.subject.reset();'> Reset Counter </button> <br><br>
-        <button onclick="pyview.get_time().then(function(e){alert(e);})"> Get System Time </button>          
+        <button onclick="pyview.get_time().then(function(e){alert(e);})"> Get System Time </button>
     '''
+
     def get_time(self):
         return "It is now: %s" % datetime.datetime.now()
 

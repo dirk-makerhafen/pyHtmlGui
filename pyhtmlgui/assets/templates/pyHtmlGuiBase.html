@@ -89,7 +89,7 @@
                                     try {
                                       return_data =  {'return': message.call, 'value':  obj[function_name](...message.args)};
                                     }catch (e) {
-                                      return_data =  {'return': message.call, 'error': "Failed to execute '"+message.name+"'\n" + e.stack }
+                                      return_data =  {'return': message.call, 'error': "Failed to execute '" + message.name + "'\n" + e.stack }
                                       console.error(return_data.error);
                                     }
                                 }

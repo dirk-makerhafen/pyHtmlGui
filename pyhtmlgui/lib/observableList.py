@@ -23,7 +23,7 @@ class ObservableList(list, Observable):
         self.notify_observers(action="insert", index=index, item=value)
 
     def __setitem__(self, key, value):
-        if (type(key) is slice):
+        if type(key) is slice:
             index = key.start
         else:
             index = key
@@ -47,7 +47,7 @@ class ObservableList(list, Observable):
 
     def pop(self, index=-1):
         removed_index = index
-        if (index == -1):
+        if index == -1:
             removed_index = len(self) - 1
         value = list.pop(self, index)
         self.notify_observers(action="pop", index=removed_index, item=value)
