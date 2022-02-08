@@ -1,3 +1,4 @@
+from __future__ import annotations
 import typing
 import jinja2
 import weakref
@@ -10,8 +11,10 @@ import json
 import queue
 import importlib
 import gevent
-
-from . import PyHtmlGui, PyHtmlView
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pyhtmlgui.pyhtmlgui import PyHtmlGui
+    from pyhtmlgui.view.pyhtmlview import PyHtmlView
 from .lib import WeakFunctionReferences
 
 
@@ -267,7 +270,7 @@ class PyHtmlGuiInstance:
                 # noinspection RegExpSingleCharAlternation
                 subparts = re.split(r'(>| |\(|=|\"|\'|\n|\r|\t|;)(pyview.[a-zA-Z0-9_.]+\()', part)
                 for x, subpart in enumerate(subparts):
-                    if subpart.startswith(prefix="pyview."):
+                    if subpart.startswith("pyview."):
                         subpart = subpart.replace("(", ")}}, ", 1)
                         subparts[x] = "pyhtmlgui.call({{_create_py_function_reference(%s" % subpart
                 for sp in subparts:

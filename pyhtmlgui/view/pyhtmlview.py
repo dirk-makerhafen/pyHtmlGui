@@ -4,8 +4,9 @@ import weakref
 import uuid
 import traceback
 import time
-
-from pyhtmlgui import Observable
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pyhtmlgui.lib.observable import Observable
 from pyhtmlgui.pyhtmlguiInstance import PyHtmlGuiInstance
 
 

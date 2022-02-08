@@ -1,7 +1,10 @@
+from __future__ import annotations
 import typing
 from threading import Lock
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pyhtmlgui.lib.observableDict import ObservableDict
 from .pyhtmlview import PyHtmlView
-from .. import ObservableDict
 
 
 class ObservableDictView(PyHtmlView):
