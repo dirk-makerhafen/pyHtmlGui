@@ -1,10 +1,10 @@
 from __future__ import annotations
-import typing
-from threading import Lock
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pyhtmlgui.lib.observableDict import ObservableDict
 from .pyhtmlview import PyHtmlView
+import typing
+from threading import Lock
 
 
 class ObservableDictView(PyHtmlView):
@@ -40,8 +40,7 @@ class ObservableDictView(PyHtmlView):
         self._wrapped_data = {}
         if self.is_visible is True:
             # is we were invisible, we might have missed add/delete events, so recreate our data wrapper
-            for kv in self.subject.items():
-                key, item = kv
+            for key, item in self.subject.items():
                 self._wrapped_data[key] = self._create_item(item, key)
         self._wrapped_data_lock.release()
 

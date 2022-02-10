@@ -67,7 +67,7 @@ class PyHtmlView:
     def render(self) -> typing.Union[str, None]:
         """
             Return object rendered to html string. This function should be called from inside the jinja templates.
-            Direct usage is not needed, Return html string rendered from template
+            Direct usage is not needed, Returns html string rendered from template
         """
         html = self._inner_html()
         if html is None:

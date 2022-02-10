@@ -17,9 +17,4 @@ if __name__ == "__main__":
         auto_reload     = True,
         shared_secret   = None,
     )
-    httpEndpoints = HttpEndpoints(app, gui)
     gui.start(show_frontend=False, block=True)
-
-
-
-

@@ -10,13 +10,13 @@ class WeakFunctionReferences:
         # noinspection PyUnresolvedReferences
         obj = function.__self__
         fname = function.__name__
-        callback_id = self._get_callback_id(function)
+        callback_id = self._create_callback_id(function)
         wr = weakref.ref(obj, self._create_delete_callback(callback_id))
         self.references[callback_id] = (wr, fname)
         return callback_id
 
     def remove(self, function: typing.Callable):
-        callback_id = self._get_callback_id(function)
+        callback_id = self._create_callback_id(function)
         del self.references[callback_id]
 
     def get(self, callback_id: int) -> typing.Callable:
@@ -36,7 +36,7 @@ class WeakFunctionReferences:
         return f
 
     @staticmethod
-    def _get_callback_id(function: typing.Callable) -> int:
+    def _create_callback_id(function: typing.Callable) -> int:
         # noinspection PyUnresolvedReferences
         obj = function.__self__
         callback_id = hash("%s%s" % (id(obj), function.__name__)) & 0xffffffffffff

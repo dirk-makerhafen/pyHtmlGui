@@ -26,7 +26,6 @@ class PyHtmlGuiInstance:
         self._template_env = jinja2.Environment(loader=parent.template_loader)
         self._template_cache = {}
         self._call_number = 0
-        self._call_javascript = self.call_javascript  # so the call_javascript function in view is available
         self._function_references = WeakFunctionReferences()
         self._template_env.globals['_create_py_function_reference'] = self._create_function_reference
         self._view = self._parent.view_class(parent.app_instance, self)
@@ -58,7 +57,6 @@ class PyHtmlGuiInstance:
         self._call_number += 1
         to_delete = self._call_number - 100
         # clean old function references, this is needed to results don't stay around if you don't
-        # set skip_results=True and don't use the result.
         for websocket_connection in self._websocket_connections:
             if to_delete in websocket_connection.javascript_call_result_objects:
                 del websocket_connection.javascript_call_result_objects[to_delete]

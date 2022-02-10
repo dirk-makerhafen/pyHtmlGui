@@ -29,13 +29,13 @@ class PyHtmlGui:
                  base_template    : str             = "pyHtmlGuiBase.html",
                  on_frontend_ready: typing.Callable = None,
                  on_frontend_exit : typing.Callable = None,
-                 size             : object          = (800, 600),
-                 position         : object          = None,
+                 size             : tuple[int, int] = (800, 600),
+                 position         : tuple[int, int] = None,
                  mode             : str             = "chrome",
                  executable       : str             = None,
                  listen_host      : str             = "127.0.0.1",
-                 listen_port      : int             = 8000,
-                 shared_secret    : str             = "",
+                 listen_port      : int             = 8042,
+                 shared_secret    : str             = None,
                  auto_reload      : bool            = False,
                  single_instance  : bool            = True
                  ) -> None:
@@ -132,17 +132,12 @@ class PyHtmlGui:
     def start(self, show_frontend: bool = False, block: bool = True) -> None:
         if show_frontend is True:
             self.show()
-
-        if block is True:
-            self._server.run(bottle.default_app())
-        else:
-            t = threading.Thread(target=self._server.run, args=[bottle.default_app()], daemon=True)
-            t.start()
+        self._server.start(block)
 
     def stop(self) -> None:
         # noinspection PyBroadException
         try:
-            self._server.server.stop()
+            self._server.stop()
         except Exception:
             pass
 
@@ -180,7 +175,7 @@ class PyHtmlGui:
         response.set_header('Set-Cookie', 'token=%s' % self._token_cookie)
         return response
 
-    # /static/<path>/<path>
+    # /static/<path>
     def _static(self, path: str):
         if bottle.request.get_cookie("token") != self._token_cookie:
             return bottle.HTTPResponse(status=403)
@@ -190,6 +185,7 @@ class PyHtmlGui:
 
     # /ws
     def _websocket(self, ws):
+
         if bottle.request.get_cookie("token") != self._token_cookie:
             return bottle.HTTPResponse(status=403)
         if bottle.request.query.token != self._token_csrf:
@@ -259,14 +255,32 @@ class WebsocketServer(bottle.ServerAdapter):
     def __init__(self, **options):
         super().__init__(**options)
         self.server = None
+        self._server_thread = None
+        self.running = False
+
+    def start(self, blocking: bool):
+        if self.running is True:
+            raise Exception("Websocket server already started!")
+        if blocking:
+            self.run(bottle.default_app())
+        else:
+            self._server_thread = threading.Thread(target=self.run, args=[bottle.default_app()], daemon=True)
+            self._server_thread.start()
+
+    def stop(self):
+        if self.server is not None:
+            self.server.stop()
 
     def run(self, handler):
+        self.running = True
         self.server = pywsgi.WSGIServer((self.host, self.port), handler, handler_class=WebSocketHandler)
         if not self.quiet:
             self.server.logger = create_logger('geventwebsocket.logging')
             self.server.logger.setLevel(logging.INFO)
             self.server.logger.addHandler(logging.StreamHandler())
         self.server.serve_forever()
+        self._server_thread = None
+        self.running = False
 
 
 class WebsocketConnection:

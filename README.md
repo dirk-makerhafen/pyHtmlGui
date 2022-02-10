@@ -1,10 +1,9 @@
 ## PyHtmlGui
 
 A python library for building user interfaces in html. Somewhat like reactjs, but in python.
+Seamless and glue code free interaction between python and javascript/html. 
  
 ##### Example
-
-Update frontend automatically if python object changes
 
 ```python
 import time, datetime
@@ -53,13 +52,3 @@ if __name__ == "__main__":
     gui.start(show_frontend=True, block=True)
 
 ```
-                                                                                 
-
-    
-Launch modes:
- 1) Launch from python:
-    a) python app starts server and opens Browser or Electron 
-    b) python app starts server, browser or Electron must be started manually
-       
- 2) Launch from electron:
-    

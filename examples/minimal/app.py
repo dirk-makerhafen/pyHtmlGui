@@ -2,6 +2,7 @@ import time, datetime
 import threading
 from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
 
+
 # App Logic
 class CounterApp(Observable):
     def __init__(self):
@@ -34,14 +35,11 @@ class CounterAppView(PyHtmlView):
     def get_time(self):
         return "It is now: %s" % datetime.datetime.now()
 
+
 # Main
 if __name__ == "__main__":
-    app = CounterApp()
     gui = PyHtmlGui(
-        app_instance = app,
+        app_instance = CounterApp(),
         view_class   = CounterAppView,
-        listen_port  = 8001,
-        listen_host  = "0.0.0.0",
     )
     gui.start(show_frontend=True, block=True)
-
