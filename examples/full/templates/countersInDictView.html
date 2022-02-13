@@ -1,0 +1,12 @@
+<h4>A Dict of counters</h4>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Key</th>
+            <th>Value</th>
+            <th>Button</th>
+        </tr>
+    </thead>
+    {{ pyview.dictView.render() }}
+</table>
+<button onclick='pyview.subject.add_counter();'>Add Counter</button> <br>

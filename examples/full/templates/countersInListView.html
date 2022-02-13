@@ -1,0 +1,12 @@
+<h4>A List of counters</h4>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Value</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    {{ pyview.listView.render() }}
+</table>
+<button onclick='pyview.subject.add_counter();'>Add Counter</button>
+<button onclick='pyview.subject.shuffle();'>Random Shuffle</button> <br>

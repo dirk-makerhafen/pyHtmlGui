@@ -1,0 +1,5 @@
+<h4>A single counter</h4>
+<p>Value: {{pyview.subject.value}} </p>
+<button {% if pyview.subject.active == true %}disabled{% endif %} onclick='pyview.subject.start();'> Start </button>
+<button {% if pyview.subject.active == false%}disabled{% endif %} onclick='pyview.subject.stop();'>  Stop  </button>
+<button onclick='pyview.subject.reset();'>Reset</button>

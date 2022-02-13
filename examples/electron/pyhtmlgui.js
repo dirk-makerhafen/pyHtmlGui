@@ -1,3 +1,4 @@
+// THIS FILE IS A COPY OF pyhtmlgui/assets/electron/pyhtmlgui.js
 const ipc = require('electron').ipcMain;
 const spawn = require('child_process').spawn;
 let package_json = require('./package.json');
@@ -5,12 +6,12 @@ let package_json = require('./package.json');
 let childProcess = null;
 let publicFunctions = {};
 
-if (package_json.PYHTMLGUI_HOST     === undefined){package_json.PYHTMLGUI_HOST     = process.env.PYHTMLGUI_HOST}
-if (package_json.PYHTMLGUI_PORT     === undefined){package_json.PYHTMLGUI_PORT     = process.env.PYHTMLGUI_PORT}
-if (package_json.PYHTMLGUI_SECRET   === undefined){package_json.PYHTMLGUI_SECRET   = process.env.PYHTMLGUI_SECRET}
-if (package_json.PYHTMLGUI_CMD      === undefined){package_json.PYHTMLGUI_CMD      = process.env.PYHTMLGUI_CMD}
-if (package_json.PYHTMLGUI_CMD_ARGS === undefined){package_json.PYHTMLGUI_CMD_ARGS = process.env.PYHTMLGUI_CMD_ARGS}
-if (package_json.PYHTMLGUI_CMD_ARGS === undefined){package_json.PYHTMLGUI_CMD_ARGS = ""}
+if (package_json.PYHTMLGUI_HOST     === undefined){ package_json.PYHTMLGUI_HOST     = process.env.PYHTMLGUI_HOST}
+if (package_json.PYHTMLGUI_PORT     === undefined){ package_json.PYHTMLGUI_PORT     = process.env.PYHTMLGUI_PORT}
+if (package_json.PYHTMLGUI_SECRET   === undefined){ package_json.PYHTMLGUI_SECRET   = process.env.PYHTMLGUI_SECRET}
+if (package_json.PYHTMLGUI_CMD      === undefined){ package_json.PYHTMLGUI_CMD      = process.env.PYHTMLGUI_CMD}
+if (package_json.PYHTMLGUI_CMD_ARGS === undefined){ package_json.PYHTMLGUI_CMD_ARGS = process.env.PYHTMLGUI_CMD_ARGS}
+if (package_json.PYHTMLGUI_CMD_ARGS === undefined){ package_json.PYHTMLGUI_CMD_ARGS = ""}
 
 function start(){
   if (package_json.PYHTMLGUI_CMD !== undefined && childProcess === null){  // we launch pyHtmlGui python process internally

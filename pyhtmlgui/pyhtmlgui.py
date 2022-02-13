@@ -27,9 +27,9 @@ class PyHtmlGui:
                  template_dir     : str             = "",
                  electron_app_dir : str             = None,
                  base_template    : str             = "pyHtmlGuiBase.html",
-                 on_frontend_ready: typing.Callable = None,
-                 on_frontend_exit : typing.Callable = None,
                  size             : tuple[int, int] = (800, 600),
+                 on_view_connected: typing.Callable = None,
+                 on_view_disconnected: typing.Callable = None,
                  position         : tuple[int, int] = None,
                  mode             : str             = "chrome",
                  executable       : str             = None,
@@ -41,23 +41,24 @@ class PyHtmlGui:
                  ) -> None:
         """
         :param app_instance: Some object (eg. main program class instance), passed to view_class as obj on launch
-        :type  app_instance: object
         :param view_class: A class that Inherits from PyHtmlView
-        :param static_dir:  static files, css, img go here
+        :param static_dir: Static files, css, img go here
         :param template_dir: main.html and other html goes here
         :param electron_app_dir: in case we use electron, this is the electron.js file we launch,
                                  default file is in pyHtmlGui/assets/electron/main.py
         :param base_template: pyHtmlGuiBase in pyHtmlGui/assets/templates, or custom file in app templates dir
-        :param on_frontend_ready:  If gui connects call this
-        :param on_frontend_exit: If gui disconnects call this
-        :param size:  window size
-        :param position:  window position
+        :param size: window size
+        :param on_view_connected: callback is called when a frontend connects via websocket,
+                                        arguments passed: "nr of view instances", "nr of websocket connections"
+        :param on_view_disconnected: callback is called when a frontend websocket is disconnected
+                                        arguments passed: "nr of view instances", "nr of websocket connections"
+        :param position: window position
         :param mode: chrome | electron
-        :param executable:  path to chrome/electron executable, if needed
+        :param executable: path to chrome/electron executable, if needed
         :param listen_host:
         :param listen_port:
-        :param shared_secret:  use "" to automatically generate a uid internally, use None to disable token
-        :param auto_reload:  for development, monitor files and reload while app is running
+        :param shared_secret: use "" to automatically generate a uid internally, None to disable token
+        :param auto_reload: for development, monitor files and reload while app is running
         :param single_instance: create only one instance and share it between all connected websockets.
                                 This is the default, so one instance of view_class is shared by all connected frontends
         """
@@ -66,10 +67,10 @@ class PyHtmlGui:
         self.app_instance = app_instance
         self.static_dir = os.path.abspath(static_dir)
         self.template_dir = os.path.abspath(template_dir)
-        self.on_frontend_ready_callback = on_frontend_ready
-        self.on_frontend_exit_callback = on_frontend_exit
         self.base_template = base_template
         self.size = size
+        self.on_view_connected_callback = on_view_connected
+        self.on_view_disconnected_callback = on_view_disconnected
         self.position = position
         self.mode = mode
         self.executable = executable
@@ -185,22 +186,12 @@ class PyHtmlGui:
 
     # /ws
     def _websocket(self, ws):
-
         if bottle.request.get_cookie("token") != self._token_cookie:
             return bottle.HTTPResponse(status=403)
         if bottle.request.query.token != self._token_csrf:
             return bottle.HTTPResponse(status=403)
         websocket_connection = WebsocketConnection(ws)
-        instance = self._get_gui_instance()
-        instance.websocket_loop(websocket_connection)  # loop while connected
-        self._release_gui_instance(instance)
 
-    def on_frontend_ready(self, instance: PyHtmlGuiInstance) -> None:  # called by pyHtmlGuiInstance on frontend ready
-        if self.on_frontend_ready_callback is not None:
-            nr_of_active_frontends = sum([instance.connections_count for instance in self._gui_instances])
-            self.on_frontend_ready_callback(instance, nr_of_active_frontends)
-
-    def _get_gui_instance(self) -> PyHtmlGuiInstance:
         if self.single_instance is True:
             if len(self._gui_instances) == 0:
                 self._gui_instances.append(PyHtmlGuiInstance(self))
@@ -208,14 +199,21 @@ class PyHtmlGui:
         else:
             instance = PyHtmlGuiInstance(self)
             self._gui_instances.append(instance)
-        return instance
 
-    def _release_gui_instance(self, instance: PyHtmlGuiInstance) -> None:
+        if self.on_view_connected_callback is not None:
+            connections = sum([i.connections_count for i in self._gui_instances]) +1  # +1 because connetion gets only added in loop later
+            self.on_view_connected_callback(len(self._gui_instances), connections)
+
+        instance.websocket_loop(websocket_connection)  # loop while connected
+
         if instance.connections_count == 0:
             self._gui_instances.remove(instance)
-        if self.on_frontend_exit_callback is not None:
-            cnt = sum([instance.connections_count for instance in self._gui_instances])
-            self.on_frontend_exit_callback(instance, cnt)
+        if hasattr(instance._view, "on_frontend_disconnected"):
+            instance._view.on_frontend_disconnected(len(instance._websocket_connections))
+        if self.on_view_disconnected_callback is not None:
+            connections = sum([i.connections_count for i in self._gui_instances])
+            self.on_view_disconnected_callback(len(self._gui_instances), connections)
+
 
     def add_file_to_monitor(self, file_to_monitor, class_name) -> None:
         if self.auto_reload is False:

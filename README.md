@@ -9,6 +9,7 @@ Seamless and glue code free interaction between python and javascript/html.
 import time, datetime
 import threading
 from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
+
 # App Logic
 class CounterApp(Observable):
     def __init__(self):
@@ -29,12 +30,11 @@ class CounterApp(Observable):
     def reset(self):
         self._set_value(0)
 
-
 # View
 class CounterAppView(PyHtmlView):
     TEMPLATE_STR = '''
         Current value: {{ pyview.subject.value }} <br>
-        <button onclick='pyview.subject.reset();'> Reset Counter </button> <br><br>
+        <button onclick='pyview.subject.reset();'> Reset Counter </button> <br>
         <button onclick="pyview.get_time().then(function(e){alert(e);})"> Get System Time </button>          
     '''
     def get_time(self):
@@ -42,13 +42,9 @@ class CounterAppView(PyHtmlView):
 
 # Main
 if __name__ == "__main__":
-    app = CounterApp()
     gui = PyHtmlGui(
-        app_instance = app,
+        app_instance = CounterApp(),
         view_class   = CounterAppView,
-        listen_port  = 8001,
-        listen_host  = "0.0.0.0",
     )
     gui.start(show_frontend=True, block=True)
-
 ```

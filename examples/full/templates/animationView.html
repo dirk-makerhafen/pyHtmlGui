@@ -1,0 +1,8 @@
+<h4> Animation </h4>
+<div class="animation">
+  {% for ball in pyview.balls %}
+    {{ ball.render() }}
+  {% endfor %}
+</div>
+<button onclick='pyview.add_ball();'> Add Ball </button>
+<button onclick='pyview.remove_ball();'> Remove Ball </button>

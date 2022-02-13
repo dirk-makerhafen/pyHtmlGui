@@ -97,11 +97,13 @@ class PyHtmlGuiInstance:
             function_name = "Function not found"
             args = "  "
             try:
-                if message['name'] == "frontend_ready":
-                    function_name = "%s.update" % self.__class__.__name__
-                    self.update()
-                    return_val = None
-                    self._parent.on_frontend_ready(self)
+                if message['name'] == "call_python_function_with_args":
+                    functioncall_id = message['args'][0]
+                    args = message['args'][1]
+                    function = self._function_references.get(functioncall_id)
+                    # noinspection PyUnresolvedReferences
+                    function_name = "%s.%s" % (function.__self__.__class__.__name__, function.__name__)
+                    return_val = function(*args)
 
                 elif message['name'] == "call_python_function":
                     functioncall_id = message['args'][0]
@@ -110,13 +112,19 @@ class PyHtmlGuiInstance:
                     function_name = "%s.%s" % (function.__self__.__class__.__name__, function.__name__)
                     return_val = function()
 
-                elif message['name'] == "call_python_function_with_args":
-                    functioncall_id = message['args'][0]
-                    args = message['args'][1]
-                    function = self._function_references.get(functioncall_id)
-                    # noinspection PyUnresolvedReferences
-                    function_name = "%s.%s" % (function.__self__.__class__.__name__, function.__name__)
-                    return_val = function(*args)
+                elif message['name'] == "python_bridge":
+                    function_name = "%s.python_bridge" % self.__class__.__name__
+                    return_val = None
+                    if hasattr(self._view, "on_electron_message"):
+                        self._view.on_electron_message(message)
+
+                elif message['name'] == "frontend_ready":
+                    function_name = "%s.frontend_ready" % self.__class__.__name__
+                    self.update()
+                    return_val = None
+                    if hasattr(self._view, "on_frontend_ready"):
+                        self._view.on_frontend_ready(len(self._websocket_connections))
+
                 else:
                     return_val = None
                     print("unknown python function", message['name'])

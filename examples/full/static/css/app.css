@@ -1,0 +1,12 @@
+
+.appsection {
+    border-top:2px solid gray;
+    padding-bottom:10px;
+}
+
+.animation {
+    width:300px;
+    height:300px;
+    position:relative;
+    margin:30px;
+}

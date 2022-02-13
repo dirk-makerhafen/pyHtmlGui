@@ -43,6 +43,12 @@
                     document.addEventListener("DOMContentLoaded", function(event) {
                         pyhtmlgui._connect();
                     });
+                    if(electron_ipc !== null){
+                        electron_ipc.on('python_bridge', function (evt, message) {
+                            let python_call_object = pyhtmlgui._create_python_call_obj("python_bridge", [message], skip_results = true);
+                            pyhtmlgui._websocket.send(pyhtmlgui._toJSON(python_call_object));
+                        });
+                    }
                 },
 
                 _connect: function() {

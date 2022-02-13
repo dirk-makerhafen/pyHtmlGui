@@ -4,24 +4,27 @@ import weakref
 import uuid
 import traceback
 import time
+import random
+import string
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pyhtmlgui.lib.observable import Observable
 from pyhtmlgui.pyhtmlguiInstance import PyHtmlGuiInstance
 
+CHARACTERS = list(string.ascii_lowercase + string.digits)
 
 class PyHtmlView:
     TEMPLATE_FILE = None
     TEMPLATE_STR = None
-    WRAPPER_ELEMENT = "pyHtmlView"
+    WRAPPER_ELEMENT = "pyview"
     WRAPPER_EXTRAS = ""
 
     def __init__(self,
-                 subject: object,
+                 subject,
                  parent:  typing.Union[PyHtmlView, PyHtmlGuiInstance],
                  **kwargs):
 
-        self.uid = "%s" % uuid.uuid4()
+        self.uid = "%s_%s" % ( self.__class__.__name__, "".join(random.choices(CHARACTERS,k=16)))
         self.is_visible = False
 
         parent._add_child(self)
@@ -43,8 +46,7 @@ class PyHtmlView:
         if self._on_subject_updated is not None:
             try:
                 self.add_observable(self.subject)
-            except Exception as e:  # detach all will thow an exception if the event can not be attached
-                print(e)
+            except Exception:  # detach all will thow an exception if the event can not be attached
                 print("object type '%s' can not be observed" % type(subject))
 
     @property
@@ -54,7 +56,7 @@ class PyHtmlView:
         return self._subject_wref()
 
     @property
-    def parent(self) -> PyHtmlView:
+    def parent(self):
         return self._parent_wref()
 
     def _on_subject_updated(self, source, **kwargs) -> None:
@@ -76,12 +78,11 @@ class PyHtmlView:
         if self.WRAPPER_ELEMENT is None:
             return html
         else:
-            s = "<%(w_el)s id='%(uid)s' %(w_ex)s data-pyhtmlgui-class='(data_class)'>%(content)s</%(w_el)s>"
+            s = "<%(w_el)s id='%(uid)s' %(w_ex)s>%(content)s</%(w_el)s>"
             return s % {
                 "w_el" : self.WRAPPER_ELEMENT,
                 "w_ex" : self.WRAPPER_EXTRAS,
                 "uid" : self.uid,
-                "data_class" : self.__class__.__name__,
                 "content" : html,
             }
 

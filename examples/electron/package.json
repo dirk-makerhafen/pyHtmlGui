@@ -1,0 +1,9 @@
+{
+  "name": "Example App",
+  "main": "main.js",
+  "PYHTMLGUI_HOST": "127.0.0.1",
+  "PYHTMLGUI_PORT": 8023,
+  "PYHTMLGUI_SECRET" : "shared_secret_replace_me",
+  "PYHTMLGUI_CMD" : "python3",
+  "PYHTMLGUI_CMD_ARGS" : "app.py"
+}
