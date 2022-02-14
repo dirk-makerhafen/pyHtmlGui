@@ -33,7 +33,7 @@ class AppView(PyHtmlView):
 if __name__ == "__main__":
     package_json = json.loads(open(os.path.join(os.path.dirname(__file__), "package.json"), "r").read()) # so electron and we use the same values
     gui = PyHtmlGui(
-        mode             = "electron",
+        browser          = "electron",
         app_instance     = App(),
         view_class       = AppView,
         listen_host      = package_json["PYHTMLGUI_HOST"],
