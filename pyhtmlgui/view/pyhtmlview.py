@@ -1,7 +1,6 @@
 from __future__ import annotations
 import typing
 import weakref
-import uuid
 import traceback
 import time
 import random

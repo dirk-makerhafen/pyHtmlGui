@@ -31,7 +31,7 @@ class PyHtmlGui:
                  on_view_connected: typing.Callable = None,
                  on_view_disconnected: typing.Callable = None,
                  position         : tuple[int, int] = None,
-                 mode             : str             = "chrome",
+                 browser          : str             = "default",
                  executable       : str             = None,
                  listen_host      : str             = "127.0.0.1",
                  listen_port      : int             = 8042,
@@ -53,7 +53,7 @@ class PyHtmlGui:
         :param on_view_disconnected: callback is called when a frontend websocket is disconnected
                                         arguments passed: "nr of view instances", "nr of websocket connections"
         :param position: window position
-        :param mode: chrome | electron
+        :param browser: default | chrome | electron
         :param executable: path to chrome/electron executable, if needed
         :param listen_host:
         :param listen_port:
@@ -72,7 +72,7 @@ class PyHtmlGui:
         self.on_view_connected_callback = on_view_connected
         self.on_view_disconnected_callback = on_view_disconnected
         self.position = position
-        self.mode = mode
+        self.browser = browser
         self.executable = executable
         self.electron_app_dir = electron_app_dir
         if shared_secret == "":
@@ -146,7 +146,7 @@ class PyHtmlGui:
         env = None
         target_host = "127.0.0.1" if self.listen_host == "0.0.0.0" else self.listen_host
 
-        if self.mode == "electron":
+        if self.browser == "electron":
             args = [self.electron_app_dir, ]
             env = os.environ.copy()
             env.update({
@@ -159,7 +159,7 @@ class PyHtmlGui:
             if self.shared_secret is not None:
                 args[0] = "%s?token=%s" % (args[0], self.shared_secret)
         if self._browser is None:
-            self._browser = Browser(self.mode, self.executable)
+            self._browser = Browser(self.browser, self.executable)
         self._browser.open(args, env=env)
 
     # /main.html

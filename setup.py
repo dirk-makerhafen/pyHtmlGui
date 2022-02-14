@@ -6,7 +6,7 @@ print(setuptools.find_packages())
 
 setuptools.setup(
     name="pyhtmlgui",
-    version="2.2",
+    version="2.3",
     author="Dirk Makerhafen",
     author_email="dirk@makerhafen.de",
     description="A Python library for building user interfaces",
@@ -14,6 +14,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/dirk-makerhafen/pyHtmlGui",
     packages=setuptools.find_packages(),
+    license='MIT',
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

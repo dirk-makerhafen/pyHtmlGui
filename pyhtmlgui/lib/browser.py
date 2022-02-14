@@ -11,25 +11,30 @@ class Browser:
         self.executable = executable
         self.browserInstance = None
         if browsername == "default":
-            self.browserInstance = BrowserDefault()
+            self.browserInstance = BrowserDefault(self.executable)
         elif browsername == "chrome":
             self.browserInstance = BrowserChrome(self.executable)
         elif browsername == "electron":
             self.browserInstance = BrowserElectron(self.executable)
         else:
             raise Exception("Unknown mode '%s', use 'default' for system browser or 'chrome' or 'electron'")
-
     def open(self, browser_args, **kwargs) -> None:
         self.browserInstance.run(browser_args, **kwargs)
 
 
 class BrowserDefault:
-    def __init__(self):
-        pass
+    def __init__(self, executable:str = None):
+        self.executable = executable
 
-    @staticmethod
-    def run(browser_args, **kwargs) -> None:
-        webbrowser.open(browser_args)
+    def run(self,browser_args, **kwargs) -> None:
+        start_url = browser_args[0]
+        if not start_url.startswith("http"):
+            start_url = "http://" + start_url
+        if self.executable is None:
+            webbrowser.open(start_url)
+        else:
+            cmd = [ self.executable, start_url ]
+            subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr, stdin=subprocess.PIPE)
 
 
 class BrowserElectron:
@@ -78,7 +83,7 @@ class BrowserChrome:
 
     def run(self, browser_args, env=None, **kwargs) -> None:
         start_url = browser_args[0]
-        if not browser_args[0].startswith("http"):
+        if not start_url.startswith("http"):
             start_url = "http://" + start_url
         cmd = [
             self.executable,

@@ -2,7 +2,12 @@
 requires = [
     "setuptools>=42",
     "wheel",
-    "whichcraft"
+    "whichcraft",
+    "gevent",
+    "gevent-websocket",
+    "bottle",
+    "bottle_websocket",
+    "jinja2"
 ]
 build-backend = "setuptools.build_meta"
 
