@@ -6,14 +6,14 @@ class CountersInDictView(PyHtmlView):
 
     def __init__(self, subject, parent, **kwargs):
         super().__init__(subject, parent, **kwargs)
-        self.dictView = ObservableDictView(subject.counters, self, CounterDictItemView, wrapper_element="tbody")
+        self.dictView = ObservableDictView(subject.counters, self, CounterDictItemView, dom_element="tbody")
 
     def remove_counter(self, counter_id):
         self.subject.remove_counter(counter_id)
 
 
 class CounterDictItemView(PyHtmlView):
-    WRAPPER_ELEMENT = "tr"
+    DOM_ELEMENT = "tr"
     TEMPLATE_STR = '''
     <td>{{pyview.item_key}}</td>
     <td>{{pyview.subject.value}}</td>

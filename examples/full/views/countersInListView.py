@@ -6,14 +6,14 @@ class CountersInListView(PyHtmlView):
 
     def __init__(self, subject, parent, **kwargs):
         super().__init__(subject, parent, **kwargs)
-        self.listView = ObservableListView(subject.counters, self, CounterListItemView, wrapper_element="tbody")
+        self.listView = ObservableListView(subject.counters, self, CounterListItemView, dom_element="tbody")
 
     def remove_counter(self, counter_id):
         self.subject.remove_counter(counter_id)
 
 
 class CounterListItemView(PyHtmlView):
-    WRAPPER_ELEMENT = "tr"
+    DOM_ELEMENT = "tr"
     TEMPLATE_STR = '''
     <td>{{pyview.subject.value}}</td>
     <td>

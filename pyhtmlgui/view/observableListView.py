@@ -19,14 +19,14 @@ class ObservableListView(PyHtmlView):
                  subject        : ObservableList,
                  parent         : PyHtmlView,
                  item_class     : type[PyHtmlView],
-                 wrapper_element: str             = PyHtmlView.WRAPPER_ELEMENT,
+                 dom_element    : str             = PyHtmlView.DOM_ELEMENT,
                  sort_key       : typing.Callable = None,
                  sort_reverse   : bool            = False,
                  filter_function: typing.Callable = None,
                  **kwargs):
 
         self._item_class = item_class
-        self.WRAPPER_ELEMENT = wrapper_element
+        self.DOM_ELEMENT = dom_element
         self._kwargs = kwargs
         self._wrapped_data = []
         self._wrapped_data_lock = Lock()

@@ -13,17 +13,18 @@ from pyhtmlgui.pyhtmlguiInstance import PyHtmlGuiInstance
 CHARACTERS = list(string.ascii_lowercase + string.digits)
 
 class PyHtmlView:
+    TEMPLATE_STR  = None
     TEMPLATE_FILE = None
-    TEMPLATE_STR = None
-    WRAPPER_ELEMENT = "pyview"
-    WRAPPER_EXTRAS = ""
+    DOM_ELEMENT = "div"
+    DOM_ELEMENT_CLASS = ""
+    DOM_ELEMENT_EXTRAS = ""
 
     def __init__(self,
                  subject,
                  parent:  typing.Union[PyHtmlView, PyHtmlGuiInstance],
                  **kwargs):
 
-        self.uid = "%s_%s" % ( self.__class__.__name__, "".join(random.choices(CHARACTERS,k=16)))
+        self.uid = "pv%s" % ( "".join(random.choices(CHARACTERS,k=16)))
         self.is_visible = False
 
         parent._add_child(self)
@@ -74,15 +75,21 @@ class PyHtmlView:
         if html is None:
             return None
         self.__last_rendered = time.time()
-        if self.WRAPPER_ELEMENT is None:
+        if self.DOM_ELEMENT is None:
             return html
         else:
-            s = "<%(w_el)s id='%(uid)s' %(w_ex)s>%(content)s</%(w_el)s>"
+            cls = self.DOM_ELEMENT_CLASS
+            if cls == "":   cls = self.__class__.__name__
+            if cls is None: cls = ""
+            if cls != "":   cls = 'class="%s"' % cls
+
+            s = '<%(el)s %(cls)s id="%(uid)s" %(ex)s>%(html)s</%(el)s>'
             return s % {
-                "w_el" : self.WRAPPER_ELEMENT,
-                "w_ex" : self.WRAPPER_EXTRAS,
-                "uid" : self.uid,
-                "content" : html,
+                "el"   : self.DOM_ELEMENT,
+                "cls"  : cls,
+                "ex"   : self.DOM_ELEMENT_EXTRAS,
+                "uid"  : self.uid,
+                "html": html,
             }
 
     def update(self) -> None:

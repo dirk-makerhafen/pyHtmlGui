@@ -41,7 +41,7 @@ class AnimationView(PyHtmlView):
 
 
 class BallView(PyHtmlView):
-    WRAPPER_ELEMENT = "li"
+    DOM_ELEMENT = "li"
     TEMPLATE_STR = 'o'
 
     def __init__(self, subject, parent, **kwargs):
@@ -53,7 +53,7 @@ class BallView(PyHtmlView):
         self.color = "%s" % "".join(random.choices("456789abcdef", k=3))
 
     @property
-    def WRAPPER_EXTRAS(self):
+    def DOM_ELEMENT_EXTRAS(self):
         return "style='color:#%s;display:block;position:absolute;left:%s%%;top:%s%%'" % (self.color, self.position_x, self.position_y)
 
     def move(self):
