@@ -12,6 +12,7 @@ from pyhtmlgui.pyhtmlguiInstance import PyHtmlGuiInstance
 
 CHARACTERS = list(string.ascii_lowercase + string.digits)
 
+
 class PyHtmlView:
     TEMPLATE_STR  = None
     TEMPLATE_FILE = None
@@ -24,7 +25,7 @@ class PyHtmlView:
                  parent:  typing.Union[PyHtmlView, PyHtmlGuiInstance],
                  **kwargs):
 
-        self.uid = "pv%s" % ( "".join(random.choices(CHARACTERS,k=16)))
+        self.uid = "pv%s" % ("".join(random.choices(CHARACTERS, k=16)))
         self.is_visible = False
 
         parent._add_child(self)
@@ -85,10 +86,10 @@ class PyHtmlView:
 
             s = '<%(el)s %(cls)s id="%(uid)s" %(ex)s>%(html)s</%(el)s>'
             return s % {
-                "el"   : self.DOM_ELEMENT,
-                "cls"  : cls,
-                "ex"   : self.DOM_ELEMENT_EXTRAS,
-                "uid"  : self.uid,
+                "el"  : self.DOM_ELEMENT,
+                "cls" : cls,
+                "uid" : self.uid,
+                "ex"  : self.DOM_ELEMENT_EXTRAS,
                 "html": html,
             }
 

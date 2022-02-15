@@ -201,7 +201,8 @@ class PyHtmlGui:
             self._gui_instances.append(instance)
 
         if self.on_view_connected_callback is not None:
-            connections = sum([i.connections_count for i in self._gui_instances]) +1  # +1 because connetion gets only added in loop later
+            connections = sum([i.connections_count for i in self._gui_instances]) + 1
+            # +1 because connection gets only added in loop later
             self.on_view_connected_callback(len(self._gui_instances), connections)
 
         instance.websocket_loop(websocket_connection)  # loop while connected
@@ -213,7 +214,6 @@ class PyHtmlGui:
         if self.on_view_disconnected_callback is not None:
             connections = sum([i.connections_count for i in self._gui_instances])
             self.on_view_disconnected_callback(len(self._gui_instances), connections)
-
 
     def add_file_to_monitor(self, file_to_monitor, class_name) -> None:
         if self.auto_reload is False:

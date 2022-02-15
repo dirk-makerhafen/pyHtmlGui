@@ -6,7 +6,7 @@ print(setuptools.find_packages())
 
 setuptools.setup(
     name="pyhtmlgui",
-    version="2.4",
+    version="2.5",
     author="Dirk Makerhafen",
     author_email="dirk@makerhafen.de",
     description="A Python library for building user interfaces",

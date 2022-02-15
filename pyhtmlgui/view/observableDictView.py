@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import types
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pyhtmlgui.lib.observableDict import ObservableDict
@@ -47,13 +49,13 @@ class ObservableDictView(PyHtmlView):
     def get_items(self) -> list:
         items = [item for key, item in self._wrapped_data.items()]
         if self.sort_key is None:
-            return sorted(items, key=lambda x: x.item_key)
+            return sorted(items, key=lambda x: x.element_key())
         else:
             return sorted(items, key=self.sort_key, reverse=self.sort_reverse)
 
     def _create_item(self, item, key):
         obj = self._item_class(item, self, **self._kwargs)
-        obj.item_key = key
+        obj.element_key = types.MethodType(lambda x: key, obj)
         return obj
 
     def _on_subject_updated(self, source, **kwargs) -> None:

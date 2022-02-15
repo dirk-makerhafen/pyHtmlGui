@@ -15,12 +15,12 @@ class CountersInDictView(PyHtmlView):
 class CounterDictItemView(PyHtmlView):
     DOM_ELEMENT = "tr"
     TEMPLATE_STR = '''
-    <td>{{pyview.item_key}}</td>
+    <td>{{pyview.element_key()}}</td>
     <td>{{pyview.subject.value}}</td>
     <td>
         <button {% if pyview.subject.active == true %}disabled{% endif %} onclick='pyview.subject.start();'>Start</button>
         <button {% if pyview.subject.active == false%}disabled{% endif %} onclick='pyview.subject.stop();'>Stop</button> 
         <button onclick='pyview.subject.reset();'>Reset</button> 
-        <button onclick='pyview.parent.parent.remove_counter("{{pyview.item_key}}");'>Delete</button> <br>
+        <button onclick='pyview.parent.parent.remove_counter("{{pyview.element_key() }}");'>Delete</button> <br>
     </td>
     '''

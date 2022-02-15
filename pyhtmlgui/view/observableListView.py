@@ -57,8 +57,8 @@ class ObservableListView(PyHtmlView):
 
     def _create_item(self, item):
         obj = self._item_class(item, self, **self._kwargs)
-        obj.loop_index = types.MethodType(lambda x: x.parent.get_element_index(x), obj)
-        obj.loop_index_used = False
+        obj.element_index = types.MethodType(lambda x: x.parent.get_element_index(x), obj)
+        obj.element_index_used = False
         return obj
 
     def _on_subject_updated(self, source, **kwargs):
@@ -73,7 +73,7 @@ class ObservableListView(PyHtmlView):
                         self._wrapped_data.remove(obj)
                     else:  # update items that use the loop index
                         for item in self._wrapped_data[kwargs["index"] + 1:]:
-                            if item.loop_index_used is True:
+                            if item.element_index_used is True:
                                 item.update()
 
             if kwargs["action"] == "setitem":
@@ -94,12 +94,12 @@ class ObservableListView(PyHtmlView):
                             self._wrapped_data.remove(obj)
                         else:
                             current_index += 1
-                [item.update() for item in self._wrapped_data[current_index:] if item.loop_index_used is True]
+                [item.update() for item in self._wrapped_data[current_index:] if item.element_index_used is True]
 
             if kwargs["action"] in ["remove", "pop", "delitem"]:
                 self._wrapped_data[kwargs["index"]].delete()
                 del self._wrapped_data[kwargs["index"]]
-                [item.update() for item in self._wrapped_data[kwargs["index"]:] if item.loop_index_used is True]
+                [item.update() for item in self._wrapped_data[kwargs["index"]:] if item.element_index_used is True]
 
             if kwargs["action"] == "sort":
                 self.update()
@@ -109,5 +109,5 @@ class ObservableListView(PyHtmlView):
             self._wrapped_data_lock.release()
 
     def get_element_index(self, element):
-        element.loop_index_used = True
+        element.element_index_used = True
         return self._wrapped_data.index(element)
