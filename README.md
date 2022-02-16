@@ -29,7 +29,7 @@ Screenshot:
 - [Minimal App](#minimal-app)
 - [Directory Structure](#directory-structure)
 - [PyHtmlGui Options](#pyhtmlgui-options)
-- [Calling Python from Javascript](#calling-python from-javascript)
+- [Calling Python from Javascript](#calling-python-from-javascript)
 - [Calling Javascript from Python](#calling-javascript-from-python)
 - [PyHtmlView methods](#pyhtmlview-methods)
 - [PyHtmlView render customisation](#pyhtmlview-render-customisation)
