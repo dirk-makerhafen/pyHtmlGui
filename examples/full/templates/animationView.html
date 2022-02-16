@@ -4,5 +4,6 @@
     {{ ball.render() }}
   {% endfor %}
 </div>
-<button onclick='pyview.add_ball();'> Add Ball </button>
-<button onclick='pyview.remove_ball();'> Remove Ball </button>
+<button onclick='pyview.add_balls(1);'> Add Ball </button>
+<button onclick='pyview.remove_ball();'> Remove Ball </button><br>
+{{pyview.nr_of_balls()}} Balls visible at <b id="framerate">{{pyview.get_framerate()}}</b> fps

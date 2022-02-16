@@ -5,6 +5,7 @@ const path = require('path');
 const pyhtmlgui = require('./pyhtmlgui.js');
 
 let mainWindow = null;
+pyhtmlgui.start(); // start early
 
 function createWindow () {
   pyhtmlgui.start();
@@ -24,7 +25,7 @@ function createWindow () {
 }
 
 app.on('ready', () => {
-  pyhtmlgui.init();
+  pyhtmlgui.init_ipc();
   createWindow();
 })
 

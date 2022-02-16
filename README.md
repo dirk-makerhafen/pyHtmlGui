@@ -1,16 +1,73 @@
-## PyHtmlGui
+# PyHtmlGui
 
-A python library for building user interfaces in html/css/js.  
-Seamless and glue code free interaction between python and javascript/html. 
- 
-##### Example
+[![PyPI version](https://img.shields.io/pypi/v/PyHtmlGui?style=for-the-badge)](https://pypi.org/project/pyhtmlgui/)
+[![PyPi Downloads](https://img.shields.io/pypi/dm/PyHtmlGui?style=for-the-badge)](https://pypistats.org/packages/pyhtmlgui)
+![Python](https://img.shields.io/pypi/pyversions/PyHtmlGui?style=for-the-badge)
+[![License](https://img.shields.io/pypi/l/PyHtmlGui.svg?style=for-the-badge)](https://pypi.org/project/PyHtmlGui/)
+
+
+
+PyHtmlGui is a Python library for building simple, fast, Electron-like offline HTML/JS GUI apps, with full access to Python capabilities and libraries.
+
+It is heavyly inspired by eel, but removes most boilerplate and enables automatic frontend updates via observables. 
+
+PyHtmlGui is designed to take the hassle out of writing GUI applications. 
+If you are familiar with Python and web development, probably just jump to
+ [this example](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/full) 
+which show most functions of pyHtmlGui in one simple app.
+
+
+Screenshot:
+<p align="center"><img src="https://raw.githubusercontent.com/dirk-makerhafen/pyHtmlGui/master/examples/full/screenshot.png"></p>
+
+
+<!-- TOC -->
+
+- [PyHtmlGui](#pyhtmlgui)
+- [Intro](#intro)
+- [Install](#install)
+- [Minimal App](#minimal-app)
+- [Directory Structure](#directory-structure)
+- [PyHtmlGui Options](#pyhtmlgui-options)
+- [Calling Python from Javascript](#calling-python from-javascript)
+- [Calling Javascript from Python](#calling-javascript-from-python)
+- [PyHtmlView methods](#pyhtmlview-methods)
+- [PyHtmlView render customisation](#pyhtmlview-render-customisation)
+- [Using from inside Electron](#using-from-inside-electron)
+- [Renderer details](#renderer-details)
+
+<!-- /TOC -->
+
+### Intro
+
+There are several options for making GUI apps in Python, but if you want to use HTML/JS (in order to use jQueryUI or Bootstrap, for example) then you generally have to write a lot of boilerplate code to communicate from the Client (Javascript) side to the Server (Python) side.  
+PyHtmlGui gets rid of all this boilerplate.   
+It automatically renders and updates python objects in HTML, something like react, and allows direct calls from Python to Javascript and vice versa,
+including async or synchronous results from one language to the other.
+It also enables running your python app inside electron, see example
+
+
+### Install
+
+Install from pypi with `pip`:
+
+```shell
+pip install pyhtmlgui
+```
+
+
+### Minimal App
+
+A PyHtmlGui app is split into your normal python application, and PyHtmlGui view classes.
+
+##### App Logic
+First create your app logic, make your classes inherit from pygtmlui.Observable
+and call notify_observers when your data changes. 
 
 ```python
 import time, datetime, threading, random
-from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
+from pyhtmlgui import Observable
 
-
-# App Logic
 class CounterApp(Observable):
     def __init__(self):
         super().__init__()
@@ -26,41 +83,405 @@ class CounterApp(Observable):
     def set_value(self, value):
         self.value = value
         self.notify_observers()
+```
 
+##### View
+Create a simple view with some inline html template.
+Note the 'pyview' reference used in the template. 'pyview' represents
+the PyHtmlView object instance that belongs to the tempate, pyview.subject is the model object observed by the view.
 
-# View
+```python
+import datetime
+from pyhtmlgui import PyHtmlView
+
 class CounterAppView(PyHtmlView):
     TEMPLATE_STR = '''
         Current value: {{ pyview.subject.value }} <br>
         <button onclick='pyview.subject.set_value(0);'> Reset Counter </button> <br><br>
         <button onclick="pyview.get_time().then(function(e){alert(e);})"> Get System Time </button>
-        <button onclick="pyview.call_js_from_python()"> Click and watch python console </button>
-        <script>
-            // script tags are executed every time this view element was rendered or updated
-            document.getElementById("{{pyview.uid}}").style.backgroundColor = '#'+Math.floor(Math.random()*16777215).toString(16);
-        </script>
     '''
 
     def get_time(self):
         return "It is now: %s" % datetime.datetime.now()
+```
 
-    def call_js_from_python(self):
+##### Starting the app
+```python
+gui = PyHtmlGui(
+    app_instance = CounterApp(),
+    view_class   = CounterAppView,
+)
+gui.start(show_frontend=True, block=True)
+```
+This will start a webserver on the default settings (http://localhost:8000) and open a browser to http://localhost:8000/.
+
+
+### Directory Structure
+
+A larger PyHtmlgui application will be split into a templates consisting of various web-technology files (.html, .js, .css), 
+  and a backend consisting of various Python scripts split into actual app logic and views.
+
+```
+app/    <- App logic
+  app.py
+views/  <- Python views
+  appView.py
+templates/      <- Template files
+  base.html     <- Extend pyHtmlGuiBase.html from pyhtmlgui assets/templates/
+  appView.html  <- TEMPLATE_FILE for appView class
+static/         <- Static content, add what you need
+  css/app.css
+  js/app.js
+run.py
+```
+
+Js/css files are included by the apps base template. By default this is 'pyHtmlGuiBase.html' in assets/templates.
+To extend this file and load you custom css/js, create a html file in your template dir and set matching options when initializing pyhtmlgui.
+
+run.py
+```python
+gui = PyHtmlGui(
+    ...
+    base_template = "base.html",
+    template_dir  = "templates",
+    static_dir    = "static"
+)
+```
+templates/base.html
+```html
+{% extends 'pyHtmlGuiBase.html' %}
+
+{% block head_scripts %}
+    <script src="/static/js/app.js"></script>
+{% endblock %}
+
+{% block head_css %}
+    <link rel="stylesheet" href="/static/css/app.css">
+{% endblock %}
+
+{% block head_meta %}
+    <title>PyHtmlGui Example App</title>
+{% endblock %}
+```
+views/appView.py
+```python
+class AppView(pyHtmlView):
+    TEMPLATE_FILE = "appView.html"
+```
+
+
+### PyHtmlGui Options
+
+  - **app_instance**, Your main App logic object
+  - **view_class**, a class that Inherits from PyHtmlView
+  - **static_dir**, static files like js/css and fonts go here *Default: `''`*
+  - **template_dir**, templates used in views go here *Default: `''`*
+  - **electron_app_dir**, if browser is electron, this directory should contain electrons main.js *Default: `None`*
+  - **base_template**, pyHtmlGuiBase.html in pyHtmlGui/assets/templates, or custom file in template_dir *Default: `None`*
+  - **size**, a tuple of ints specifying the (width, height) of the main window in pixels *Default: `None`*
+  - **on_view_connected**, callback function is called when a frontend connects via websocket,
+                           arguments passed: "nr of view instances", "nr of websocket connections" *Default: `None`*
+  - **on_view_disconnected**, callback function is called when a frontend disconnects via websocket,
+                           arguments passed: "nr of view instances", "nr of websocket connections" *Default: `None`*
+  - **position**       
+  - **browser**, a string specifying what browser to use (e.g. `'default'`, `'chrome'`, `'chrome'`, `'electron'`). `'default'` opens your systems default browser. *Default: `'default'`*.
+  - **executable**, path to browser executable, if needed.
+  - **listen_host**, a string specifying what hostname to use for the server. *Default: `'localhost'`)*   
+  - **listen_port** , an int specifying what port to use for the server.  *Default: `8000`*.    
+  - **shared_secret**, add a security token to prevent unauthorized access to the webserver, use "" to automatically generate internally, None to disable token *Default: `None`*.
+  - **auto_reload**, for development, monitor templates and reload while app is running. *Default: `False`*.
+  - **single_instance**, create only one view instance and share it between all connected websockets. 
+                         Try examples/full app and notice the animation and tab view in sync between multiple browser windows. *Default: `True`*.
+
+
+### Calling Python from Javascript
+
+Html/JS rendered by a View can use the 'pyview.' reference to access the python side view object.
+Note that "pyview." object is not available from javascript at runtime, 
+"pyview." is replaced by a dynamic function reference when the view is rendered. See [Renderer details](#renderer-details) for more.
+
+```python
+class myView(pyHtmlView):
+    TEMPLATE_STR = '''
+        <button onclick='pyview.addSome(23).then(function(e){alert(e);});'></button>
+    '''
+    def addSome(self, value):
+        return value + 42
+```
+
+
+### Calling Javascript from Python
+
+You can call javasript functions from inside the python view object and receive the return values.
+If multiple frontends are connected to a shared view, you will get one result for each active frontend. 
+
+```python
+class myView(pyHtmlView):
+    def call_js_async(self):
+        resultsHandler = self.call_javascript(js_function_name="Math.round", args=[1.2345] )
+        resultsHandler(callback=lambda results: print(results))
+
+    def call_js_sync(self):
+        resultsHandler = self.call_javascript(js_function_name="Math.round", args=[1.2345] )
+        print(resultsHandler())
+```
+
+You can also eval javascript functions dynamically.
+
+
+```python
+class myView(pyHtmlView):
+    TEMPLATE_STR = '''
+        Hello world
+        <script>
+            document.getElementById("{{pyview.uid}}").style.backgroundColor = '#'+Math.floor(Math.random()*16777215).toString(16);
+        </script>
+    '''
+    def eval_js_async(self):
         resultsHandler = self.eval_javascript(
             script='return document.getElementById(args.uid).style.backgroundColor;',
             uid=self.uid)
         resultsHandler(callback=lambda results: print(results))
-        # results = resultsHandler() #synchronous, would break eventloop here if used in a function that in itself is called from javascript
-        # note multiple results if multiple frontends are connected AND PyHtmlGui.single_instance is True (the default)
-
-
-# Main
-if __name__ == "__main__":
-    gui = PyHtmlGui(
-        app_instance = CounterApp(),
-        view_class   = CounterAppView,
-        auto_reload  = True, # edit templates while frontend is active!
-    )
-    gui.start(show_frontend=True, block=True)
-
-
 ```
+
+
+### PyHtmlView methods
+
+All your views should inherit from PyHtmlView. 
+PyHtmlView observes your python app logic object(s) and provides rendering methods as well 
+as event and javascript handling. 
+
+```python
+class AppSub(Observable): # just a value
+    def __init__(self):
+        self.value = 23
+
+class App(Observable): # no app logic
+    def __init__(self):
+        self.appSub = AppSub()
+    
+class AppSubView(PyHtmlView):
+    TEMPLATE_STR = '{{pyview.subject.value}}'
+
+class AppView(PyHtmlView):
+    TEMPLATE_STR = '''Some Subview: {{pyview.subview.render()}}'''
+
+    def __init__(self, subject, parent, **kwargs):
+        super().__init__(subject, parent, **kwargs)
+        self.subview = AppSubView(subject.appSub, self)
+```
+
+
+- PyHtmlView.**__init\__(subject, parent)**  
+    Create a new view instance, attaches default event that observes the **`subject`** and calls
+    **`_on_subject_updated()`** when the subject notifies its observers.
+    Use **`parent`** in nested views to access the **`parent`** view that contains this element.
+    This keeps track of visible/invisible elements and attaches/detached events appropriatley.
+    To prevent attaching of the default event, overwrite **`_on_subject_updated`** to None.
+    
+- PyHtmlView.**render()**  
+    Returns the rendered template string as markup element. It can be use in other templates via
+    **`{{pyview.subview.render()}}`** to create nested views.
+
+- PyHtmlView.**update()**  
+    Update the DOM element in place. View must have been rendered before and be visible in the DOM.
+    By default, this function is called from **`_on_subject_updated`** when the observed **`subject`** changes.
+
+- PyHtmlView.**call_javascript(fname, args, skip_results)**  
+    Call frontend javascript function **`fname`**. Supply a list of args if needed.
+    If **`skip_results`** is **`true`** no results will be received, and **`None`** will be returned.
+    Otherwise a **`JavascriptCallResult`**  object will be returned. Results can be received either 
+    asynchronous via javascriptCallResult(callback=lambda results:print(results)) or 
+    synchronous via result = javascriptCallResult()
+  
+- PyHtmlView.**eval_javascript(script, skip_results, \*\*kwargs)**  
+   Dynamically eval javascript in frontend. Behaves largely like call_javascript, but kwargs are passed as **`args`** variable to the javascript call.
+   **eval_javascript(script='return 42 + args.value', value=23)**
+   
+- PyHtmlView.**set_visible(visible)**  
+    This method is called right before the view is rendered and added to the DOM, 
+    or after a parent element was rendered and this view is no longer visible.
+    It attaches/detaches events based on visibility. Overwrite this function if you need 
+    your view to react to weather its visible or not.
+    
+- PyHtmlView.**add_observable(subject, target_function)**   
+    Add a new event to this view that is active as long as the view is visible.
+    By default, **`__init__`** will assign target_function **`_on_subject_updated`** to 
+    **`subject`**. If you not set target_function the default target function **`_on_subject_updated`** will be used.
+    Use this function if you want your view to react to multiple model objects.
+    
+- PyHtmlView.**remove_observable(subject, target_function)**  
+    Remove event from view.
+    
+- PyHtmlView.**_on_subject_updated(source, \*\*kwargs)**  
+   This is the default event handler for **`self.subject`**, it will call **`update`** to redraw the DOM element
+
+- PyHtmlView.**_on_subject_died(self, wr)**   
+  This is called when the  **`self.subject`** object is derefered. The default handler removes the 
+  view from DOM, detaches all events and destroys the view object including all its children.
+  
+
+
+### PyHtmlView render customisation
+
+Your view classes that inherit from PyHtmlView  have several options to customize how their 
+container is rendered.
+
+```python
+class myView(PyHtmlView):
+    TEMPLATE_STR = "test"
+```
+will render to 
+```html
+<div class="myView" id="pvf6p3p7uiirkwac40">test</div>
+```
+You can change how this element is renderd by setting some attributes of your view class.
+
+```python
+class myView(PyHtmlView):
+    DOM_ELEMENT = "p"
+    DOM_ELEMENT_CLASS = "myFoo myBar"
+    DOM_ELEMENT_EXTRAS = 'style="color:red;"'
+    TEMPLATE_STR = "test"
+```
+will render to the html below. To remove the class attribute, set DOM_ELEMENT_CLASS to None
+```html
+<p class="myFoo myBar" style="color:red;" id="pvf6p3p7uiirkwac40">test</p>
+```
+
+You can make these parameters dynamic, so they are applied every time the dom element is updated.
+```python
+class myView(PyHtmlView):
+    TEMPLATE_STR = "test"
+
+    @property
+    def DOM_ELEMENT_EXTRAS(self):
+        color = "%s" % "".join(random.choices("456789abcdef", k=3))
+        return 'style="color:#%s"' %  color
+```
+
+
+### Using from inside Electron
+
+Make electron launch your python app so you can create a shippable electron executable
+what runs your python application logic + views!
+Full code for the example below is available at:
+
+Electron directory Structure
+```
+app.py  <- Your python app logic
+main.js <- Minimal electron main
+package.json <- Electron package.json + shared pyhtmlgui config
+pyhtmlgui.js <- Copy of assets/electron/pyhtmlgui.js
+```
+
+package.json, with additional options for pyhtmlgui.
+```
+{
+  "name": "Example App",
+  "main": "main.js",
+  "PYHTMLGUI_HOST": "127.0.0.1",
+  "PYHTMLGUI_PORT": 8023,
+  "PYHTMLGUI_SECRET" : "shared_secret_replace_me",
+  "PYHTMLGUI_CMD" : "python",
+  "PYHTMLGUI_CMD_ARGS" : "app.py"
+}
+```
+
+main.js (shortend, full version in examples/electron/main.js)
+```javascript
+const pyhtmlgui = require('./pyhtmlgui.js');
+
+pyhtmlgui.start(); // start python process early
+
+app.on('ready', () => {
+  pyhtmlgui.init_ipc();
+  // TODO create window
+  mainWindow.loadURL(pyhtmlgui.get_start_url());
+})
+
+pyhtmlgui.add_public_functions({
+  exit: function (){
+    app.quit();
+    app.exit(0);
+  },
+  ping: function (){
+    return "Pong from electron";
+  }
+})
+```
+
+app.py is launched automatically from inside electrons main process.   
+Note the usage of self.call_javascipt("electron.ping").  
+Javascript calls from python prefixed with "electron." are automaticlly forwarded to functions declared 
+in electrons main.js via pyhtmlgui.add_public_functions()
+
+app.py
+```python
+import os, time, json
+from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
+
+class App(Observable): # empty app logic
+    pass
+
+class AppView(PyHtmlView):
+    TEMPLATE_STR = '''
+        <button onclick="pyview.ping_electron()">Ping electron process</button>   
+        <div id="electron_ping_result"></div>
+        <button onclick="pyview.exit()">Exit App</button>   
+    '''
+    def ping_electron(self):
+        self.call_javascript("electron.ping",[])(self._set_result)
+
+    def _set_result(self, values):
+        self.eval_javascript("document.getElementById('electron_ping_result').innerHTML = args.value", skip_results=True, value = json.dumps(values))
+
+    def exit(self):
+        self.call_javascript("electron.exit",[], skip_results=True) # close electron app, no results to receive
+        exit(0)
+
+if __name__ == "__main__":
+    package_json = json.loads(open(os.path.join(os.path.dirname(__file__), "package.json"), "r").read()) # so electron and we use the same values
+    gui = PyHtmlGui(
+        browser          = "electron",
+        app_instance     = App(),
+        view_class       = AppView,
+        listen_host      = package_json["PYHTMLGUI_HOST"],
+        listen_port      = package_json["PYHTMLGUI_PORT"],
+        shared_secret    = package_json["PYHTMLGUI_SECRET"],
+    )
+    gui.start(show_frontend=False, block=True)
+``` 
+
+
+### Renderer details
+
+Templates are jinja2 templates. "pyview" is the python view object passed to the jinja renderer. 
+Default jinja rendering rule apply. {{pyview.variable}} will render a variable, 
+{{pyview.myfunction()}} will run myfunction at render time and show its results. 
+{{pyview.subject}} gives access to the app logic object observed to this view. 
+
+If you use "pyview." outside of jinjas tags, some pyHtmlGui magic will be applied:   
+
+
+```python
+class myView():
+    TEMPLATE_STR = '''
+        <button onclick="pyview.addOne({{pyview.addOne(1)}}).then(function(e){alert(e);})">
+        </button>
+    '''
+    def addOne(self, value):
+        return value + 1
+```
+
+
+After the first rendering step, the convinience function notion has been replaced with something the jinja template renderer can use:
+```html
+<button onclick="pyhtmlgui.call({{_create_py_function_reference(pyview.addOne)}}, {{pyview.addOne(1)}}).then(function(e){alert(e);})"></button>
+```
+After the final render this is the actual content that is send to the browser. The inner addOne function has being resolved at render 
+time, and some magic function reference has been created in the background to access the  addOne function of pyview later.
+```html
+<button onclick="pyhtmlgui.call(24325642347682, 2).then(function(e){alert(e);})"></button>
+```
+After this, clicking the button will show "3"

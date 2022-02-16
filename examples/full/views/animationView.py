@@ -11,8 +11,14 @@ class AnimationView(PyHtmlView):
         super().__init__(subject, parent, **kwargs)
         self.balls = []
         self._t = None
-        for i in range(10):
-            self.add_ball()
+        self.add_balls(20)
+        self._framerate = 0
+
+    def get_framerate(self):
+        return round(self._framerate)
+
+    def nr_of_balls(self):
+        return len(self.balls)
 
     def set_visible(self, visible):
         # overwrite set_visible to start animation if element gets visible
@@ -21,8 +27,9 @@ class AnimationView(PyHtmlView):
             self._t = threading.Thread(target=self._loop, daemon=True)
             self._t.start()
 
-    def add_ball(self):
-        self.balls.append(BallView(self.subject, self))
+    def add_balls(self, nr_of_balls = 1):
+        for i in range(nr_of_balls):
+            self.balls.append(BallView(self.subject, self))
         if self.is_visible:
             self.update()
 
@@ -33,10 +40,24 @@ class AnimationView(PyHtmlView):
                 self.update()
 
     def _loop(self):
+        last_ts_fr = time.time()
         while self.is_visible:
+            start = time.time()
             for ball in self.balls:
                 ball.move()
-            time.sleep(1 / 60)
+            diff = time.time() - start
+            sleep_time = (1/40) - diff # target ~40 fps
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+
+            now = time.time()
+            diff = now - last_ts_fr
+            last_ts_fr = now
+            framerate = ((self._framerate*20) + (1 / diff))/21
+            if round(framerate) != round(self._framerate): # prevent redrawing the animation by using js directly to display current frame rate
+                js = 'document.getElementById("framerate").innerHTML = args.framerate+"";'
+                self.eval_javascript(js, skip_results=True, framerate=round(framerate))
+            self._framerate = framerate
         self._t = None
 
 
@@ -71,3 +92,5 @@ class BallView(PyHtmlView):
             js += 'item.style.left = args.posx + "%";'
             js += 'item.style.top  = args.posy + "%";'
             self.eval_javascript(js, skip_results=True, uid=self.uid, posx=self.position_x, posy=self.position_y)
+            # or even faster on the browser side, without eval by writing the js function in advance, see static/js/app.js
+            #self.call_javascript("update_balls",[self.uid, self.position_x, self.position_y], skip_results=True)

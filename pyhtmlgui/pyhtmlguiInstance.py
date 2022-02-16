@@ -23,7 +23,7 @@ class PyHtmlGuiInstance:
         self._parent = parent
         self._websocket_connections = []
         self._children = weakref.WeakSet()
-        self._template_env = jinja2.Environment(loader=parent.template_loader)
+        self._template_env = jinja2.Environment(loader=parent.template_loader, autoescape=jinja2.select_autoescape())
         self._template_cache = {}
         self._call_number = 0
         self._function_references = WeakFunctionReferences()
@@ -63,6 +63,8 @@ class PyHtmlGuiInstance:
             if to_delete in websocket_connection.javascript_call_result_queues:
                 del websocket_connection.javascript_call_result_queues[to_delete]
 
+        if args is None:
+            args = []
         javascript_call_object = {'call': self._call_number, 'name': js_function_name, 'args': args}
 
         if skip_results is True:

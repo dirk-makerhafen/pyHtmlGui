@@ -6,6 +6,9 @@ import time
 import random
 import string
 from typing import TYPE_CHECKING
+
+from markupsafe import Markup
+
 if TYPE_CHECKING:
     from pyhtmlgui.lib.observable import Observable
 from pyhtmlgui.pyhtmlguiInstance import PyHtmlGuiInstance
@@ -77,21 +80,20 @@ class PyHtmlView:
             return None
         self.__last_rendered = time.time()
         if self.DOM_ELEMENT is None:
-            return html
+            return Markup(html)
         else:
             cls = self.DOM_ELEMENT_CLASS
             if cls == "":   cls = self.__class__.__name__
             if cls is None: cls = ""
             if cls != "":   cls = 'class="%s"' % cls
 
-            s = '<%(el)s %(cls)s id="%(uid)s" %(ex)s>%(html)s</%(el)s>'
-            return s % {
+            return Markup('<%(el)s %(cls)s id="%(uid)s" %(ex)s>%(html)s</%(el)s>' % {
                 "el"  : self.DOM_ELEMENT,
                 "cls" : cls,
                 "uid" : self.uid,
                 "ex"  : self.DOM_ELEMENT_EXTRAS,
                 "html": html,
-            }
+            })
 
     def update(self) -> None:
         """
@@ -154,7 +156,7 @@ class PyHtmlView:
                 except Exception:
                     pass
 
-    def call_javascript(self, js_function_name, args, skip_results=False):
+    def call_javascript(self, js_function_name, args=None, skip_results=False):
         """
         Call javascript function in frontend.
         :param js_function_name: Name of javascript function

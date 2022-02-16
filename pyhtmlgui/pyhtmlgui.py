@@ -112,7 +112,7 @@ class PyHtmlGui:
             raise Exception("Static dir '%s' not found" % self.static_dir)
 
         self.template_loader = jinja2.FileSystemLoader(searchpath=[self._template_dir, self.template_dir])
-        self._template_env = jinja2.Environment(loader=self.template_loader)
+        self._template_env = jinja2.Environment(loader=self.template_loader, autoescape=jinja2.select_autoescape())
 
         self._gui_instances = []
 

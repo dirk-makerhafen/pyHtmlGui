@@ -1,5 +1,4 @@
 import uuid
-
 from pyhtmlgui import Observable, ObservableDict
 from .counter import Counter
 

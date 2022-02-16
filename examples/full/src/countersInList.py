@@ -1,5 +1,5 @@
-from pyhtmlgui import Observable, ObservableList
 import random
+from pyhtmlgui import Observable, ObservableList
 from .counter import Counter
 
 

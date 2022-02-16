@@ -28,7 +28,7 @@ function start(){
   }
 }
 
-function init(){
+function init_ipc(){
   ipc.handle('call', async (event, function_name_full, args) => {
       let name_parts = function_name_full.split(".");
       let function_name = name_parts.pop();

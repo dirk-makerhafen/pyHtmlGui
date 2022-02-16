@@ -5,9 +5,10 @@ const path = require('path');
 const pyhtmlgui = require('./pyhtmlgui.js');
 
 let mainWindow = null;
+pyhtmlgui.start(); // start early
 
 function createWindow () {
-  pyhtmlgui.start()
+  pyhtmlgui.start() // on osx window may be created multiple times, ensure python process is active
   mainWindow = new BrowserWindow({
     frame: true,
     webPreferences: {
@@ -23,7 +24,7 @@ function createWindow () {
 }
 
 app.on('ready', () => {
-  pyhtmlgui.init();
+  pyhtmlgui.init_ipc();
   createWindow();
 })
 
