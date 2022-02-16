@@ -61,7 +61,7 @@ pip install pyhtmlgui
 A PyHtmlGui app is split into your normal python application, and PyHtmlGui view classes.
 
 ##### App Logic
-First create your app logic, make your classes inherit from **`pyhtmlui.Observable`** 
+First create your app logic, make your classes inherit from **`pyhtmlgui.Observable`** 
 and call **`notify_observers()`**  when your data changes. 
 
 ```python
@@ -118,7 +118,7 @@ This will start a webserver on the default settings (http://localhost:8000) and 
 
 ### Directory Structure
 
-A larger PyHtmlgui application will be split into templates consisting of various web-technology files (.html, .js, .css), 
+A larger PyHtmlGui application will be split into templates consisting of various web-technology files (.html, .js, .css), 
 and a backend consisting of various Python scripts split into actual app logic and views.
 
 ```
@@ -135,7 +135,7 @@ static/         <- Static content, add what you need
 run.py
 ```
 
-JS/CSS files are included by the apps base template. By default this is 'pyHtmlGuiBase.html' in assets/templates.
+JS/CSS files are included by the apps base template. By default this is 'pyHtmlGuiBase.html' from pyhtmlgui/assets/templates.
 To extend this file and load you custom css/js, create a html file in your template dir and set matching options when initializing PyHtmlGui.
 
 run.py
@@ -162,6 +162,10 @@ templates/base.html
 {% block head_meta %}
     <title>PyHtmlGui Example App</title>
 {% endblock %}
+```
+templates/appView.html
+```html
+<p>Hello World</p>
 ```
 views/appView.py
 ```python
