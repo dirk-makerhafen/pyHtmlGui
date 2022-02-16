@@ -14,7 +14,7 @@ It is heavyly inspired by eel, but removes most boilerplate and enables automati
 PyHtmlGui is designed to take the hassle out of writing GUI applications. 
 If you are familiar with Python and web development, probably just jump to
  [this example](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/full) 
-which show most functions of pyHtmlGui in one simple app.
+which show most functions of PyHtmlGui in one simple app.
 
 
 Screenshot:
@@ -61,8 +61,8 @@ pip install pyhtmlgui
 A PyHtmlGui app is split into your normal python application, and PyHtmlGui view classes.
 
 ##### App Logic
-First create your app logic, make your classes inherit from pygtmlui.Observable
-and call notify_observers when your data changes. 
+First create your app logic, make your classes inherit from **`pyhtmlui.Observable`** 
+and call **`notify_observers()`**  when your data changes. 
 
 ```python
 import time, datetime, threading, random
@@ -87,8 +87,8 @@ class CounterApp(Observable):
 
 ##### View
 Create a simple view with some inline html template.
-Note the 'pyview' reference used in the template. 'pyview' represents
-the PyHtmlView object instance that belongs to the tempate, pyview.subject is the model object observed by the view.
+Note the **`pyview`** reference used in the template. **`pyview`** represents
+the PyHtmlView object instance that belongs to the tempate, **`pyview.subject`** is the model object observed by the view.
 
 ```python
 import datetime
@@ -118,8 +118,8 @@ This will start a webserver on the default settings (http://localhost:8000) and 
 
 ### Directory Structure
 
-A larger PyHtmlgui application will be split into a templates consisting of various web-technology files (.html, .js, .css), 
-  and a backend consisting of various Python scripts split into actual app logic and views.
+A larger PyHtmlgui application will be split into templates consisting of various web-technology files (.html, .js, .css), 
+and a backend consisting of various Python scripts split into actual app logic and views.
 
 ```
 app/    <- App logic
@@ -135,8 +135,8 @@ static/         <- Static content, add what you need
 run.py
 ```
 
-Js/css files are included by the apps base template. By default this is 'pyHtmlGuiBase.html' in assets/templates.
-To extend this file and load you custom css/js, create a html file in your template dir and set matching options when initializing pyhtmlgui.
+JS/CSS files are included by the apps base template. By default this is 'pyHtmlGuiBase.html' in assets/templates.
+To extend this file and load you custom css/js, create a html file in your template dir and set matching options when initializing PyHtmlGui.
 
 run.py
 ```python
@@ -172,33 +172,33 @@ class AppView(pyHtmlView):
 
 ### PyHtmlGui Options
 
-  - **app_instance**, Your main App logic object
-  - **view_class**, a class that Inherits from PyHtmlView
-  - **static_dir**, static files like js/css and fonts go here *Default: `''`*
-  - **template_dir**, templates used in views go here *Default: `''`*
-  - **electron_app_dir**, if browser is electron, this directory should contain electrons main.js *Default: `None`*
-  - **base_template**, pyHtmlGuiBase.html in pyHtmlGui/assets/templates, or custom file in template_dir *Default: `None`*
-  - **size**, a tuple of ints specifying the (width, height) of the main window in pixels *Default: `None`*
-  - **on_view_connected**, callback function is called when a frontend connects via websocket,
+  - **app_instance** : Your main App logic object
+  - **view_class** : A class that Inherits from PyHtmlView
+  - **static_dir** : Static files like js/css and fonts go here *Default: `''`*
+  - **template_dir** : Templates used in views go here *Default: `''`*
+  - **electron_app_dir** : If browser is electron, this directory should contain electrons main.js *Default: `None`*
+  - **base_template** : A file in *template_dir* extending pyHtmlGui/assets/templates/pyHtmlGuiBase.html,  *Default: `None`*
+  - **size** : A tuple of ints specifying the (width, height) of the main window in pixels *Default: `None`*
+  - **on_view_connected** : callback function is called when a frontend connects via websocket,
                            arguments passed: "nr of view instances", "nr of websocket connections" *Default: `None`*
-  - **on_view_disconnected**, callback function is called when a frontend disconnects via websocket,
+  - **on_view_disconnected** : callback function is called when a frontend disconnects via websocket,
                            arguments passed: "nr of view instances", "nr of websocket connections" *Default: `None`*
-  - **position**       
-  - **browser**, a string specifying what browser to use (e.g. `'default'`, `'chrome'`, `'chrome'`, `'electron'`). `'default'` opens your systems default browser. *Default: `'default'`*.
-  - **executable**, path to browser executable, if needed.
-  - **listen_host**, a string specifying what hostname to use for the server. *Default: `'localhost'`)*   
-  - **listen_port** , an int specifying what port to use for the server.  *Default: `8000`*.    
-  - **shared_secret**, add a security token to prevent unauthorized access to the webserver, use "" to automatically generate internally, None to disable token *Default: `None`*.
-  - **auto_reload**, for development, monitor templates and reload while app is running. *Default: `False`*.
-  - **single_instance**, create only one view instance and share it between all connected websockets. 
+  - **position** : A tuple of ints specifying the (X, Y) position of the main windows in pixels.  *Default: `None`*
+  - **browser** : A string specifying what browser to use (e.g. `'default'`, `'chrome'`, `'chrome'`, `'electron'`). `'default'` opens your systems default browser. *Default: `'default'`*.
+  - **executable** : Path to browser executable, if needed.
+  - **listen_host** : A string specifying what hostname to use for the server. *Default: `'localhost'`)*   
+  - **listen_port**  : An int specifying what port to use for the server.  *Default: `8000`*.    
+  - **shared_secret** : Add a security token to prevent unauthorized access to the webserver, use "" to automatically generate internally, None to disable token *Default: `None`*.
+  - **auto_reload** : For development, monitor templates and reload while app is running. *Default: `False`*.
+  - **single_instance** : Create only one view instance and share it between all connected websockets. 
                          Try examples/full app and notice the animation and tab view in sync between multiple browser windows. *Default: `True`*.
 
 
 ### Calling Python from Javascript
 
-Html/JS rendered by a View can use the 'pyview.' reference to access the python side view object.
-Note that "pyview." object is not available from javascript at runtime, 
-"pyview." is replaced by a dynamic function reference when the view is rendered. See [Renderer details](#renderer-details) for more.
+Html/JS rendered by a View can use the **`pyview`** reference to access the python side view object.
+Note that the **`pyview`** object is not available from javascript at runtime, 
+**`pyview.`** is replaced by a dynamic function reference when the view is rendered. See [Renderer details](#renderer-details) for more.
 
 ```python
 class myView(pyHtmlView):
@@ -324,18 +324,18 @@ class AppView(PyHtmlView):
 
 ### PyHtmlView render customisation
 
-Your view classes that inherit from PyHtmlView  have several options to customize how their 
+Your view classes that inherit from PyHtmlView have several options to customize how their 
 container is rendered.
 
 ```python
 class myView(PyHtmlView):
     TEMPLATE_STR = "test"
 ```
-will render to 
+will render 
 ```html
 <div class="myView" id="pvf6p3p7uiirkwac40">test</div>
 ```
-You can change how this element is renderd by setting some attributes of your view class.
+You can change how this element is rendered by setting some attributes of your view class.
 
 ```python
 class myView(PyHtmlView):
@@ -344,7 +344,7 @@ class myView(PyHtmlView):
     DOM_ELEMENT_EXTRAS = 'style="color:red;"'
     TEMPLATE_STR = "test"
 ```
-will render to the html below. To remove the class attribute, set DOM_ELEMENT_CLASS to None
+will render the html below. To remove the class attribute, set DOM_ELEMENT_CLASS to None
 ```html
 <p class="myFoo myBar" style="color:red;" id="pvf6p3p7uiirkwac40">test</p>
 ```
