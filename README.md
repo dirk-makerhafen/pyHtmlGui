@@ -483,7 +483,7 @@ After the first rendering step, the convinience function notion has been replace
 ```html
 <button onclick="pyhtmlgui.call({{_create_py_function_reference(pyview.addOne)}}, {{pyview.addOne(1)}}).then(function(e){alert(e);})"></button>
 ```
-After the final render this is the actual content that is send to the browser. The inner addOne function has being resolved at render 
+After the final render this is the actual content that is send to the browser. The inner addOne function has been resolved at render 
 time, and some magic function reference has been created in the background to access the  addOne function of pyview later.
 ```html
 <button onclick="pyhtmlgui.call(24325642347682, 2).then(function(e){alert(e);})"></button>
