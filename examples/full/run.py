@@ -15,7 +15,7 @@ if __name__ == "__main__":
         base_template="base.html",
         on_view_connected=app.on_view_connected,
         on_view_disconnected=app.on_view_disconnected,
-        listen_port=8881,
+        listen_port=8042,
         listen_host="127.0.0.1",
         auto_reload=True,
         single_instance=True,
