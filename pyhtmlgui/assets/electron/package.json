@@ -1,4 +1,9 @@
 {
   "name": "example_app_name",
-  "main": "main.js"
+  "main": "main.js",
+  "PYHTMLGUI_HOST": "127.0.0.1",
+  "PYHTMLGUI_PORT": 8000,
+  "PYHTMLGUI_SECRET" : "shared_secret_replace_me",
+  "PYHTMLGUI_CMD" : "python",
+  "PYHTMLGUI_CMD_ARGS" : "app.py"
 }

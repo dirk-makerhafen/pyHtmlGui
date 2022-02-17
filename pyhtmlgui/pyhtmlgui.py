@@ -100,7 +100,7 @@ class PyHtmlGui:
         else:
             if getattr(sys, 'frozen', False) is not True:
                 # if we are not frozen, copy our internal lib to the electron target dir if it does not exist
-                for f in ["pyhtmlgui.js", "main.js"]:
+                for f in ["pyhtmlgui.js", "main.js", "package.json"]:
                     lib_js_target = os.path.join(self.electron_app_dir, f)
                     lib_js_source = os.path.join(self._electron_dir, f)
                     if not os.path.exists(lib_js_target):

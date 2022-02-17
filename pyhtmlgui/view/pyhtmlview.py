@@ -5,10 +5,8 @@ import traceback
 import time
 import random
 import string
-from typing import TYPE_CHECKING
-
 from markupsafe import Markup
-
+from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pyhtmlgui.lib.observable import Observable
 from pyhtmlgui.pyhtmlguiInstance import PyHtmlGuiInstance

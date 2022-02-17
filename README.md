@@ -13,7 +13,7 @@ PyHtmlGui is designed to take the hassle out of writing GUI applications.
 It allows python developers to write beautiful, modern and fast HTML user interfaces without 
 any boilerplate code and with minimal javascript knowledge.  
 
-PyHtmlGui enables seamless function calls from Javascript to Python and the reverse, including synchronous and asynchronous return values from one language to the other.
+PyHtmlGui enables seamless function calls from Javascript to Python and the reverse, including asynchronous return values from one language to the other.
 It creates reactive user interfaces by following the observer pattern to automatically update the HTML frontend if the underlying python model changes. 
 
 PyHtmlGui is inspired by Python [eel](https://github.com/ChrisKnott/Eel) and Javascript [React](https://reactjs.org/).
@@ -422,6 +422,15 @@ package.json <- Electron package.json + shared pyhtmlgui config
 pyhtmlgui.js <- Copy of assets/electron/pyhtmlgui.js
 ```
 
+While you can download *main.js*, *package.json*, *pyhtmlgui.js* from github, you can also receive them from PyHtmlGui if its installed via pip.
+Create a minimal PyHtmlGui instance, set **`electron_app_dir`** to your target folder. Running this script will copy
+ *package.json*, *pyhtmlgui.js* and an example  *main.js* to your **`electron_app_dir`**, if they don't exist. 
+
+```
+from pyhtmlgui import PyHtmlGui
+PyHtmlGui(None, None, electron_app_dir = "mydir")
+```
+
 *package.json*, with additional options for PyHtmlGui.
 ```
 {
@@ -499,6 +508,7 @@ if __name__ == "__main__":
     )
     gui.start(show_frontend=False, block=True)
 ``` 
+
 
 
 ### Renderer details
