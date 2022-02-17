@@ -258,6 +258,7 @@ class myView(pyHtmlView):
 
 You can call javasript functions from inside the python view object and receive the return values.
 If multiple frontends are connected to a shared view, you will get one result for each active frontend. 
+Use **`args`** to pass a list of arguments to the called JS function if needed.
 
 ```python
 class myView(pyHtmlView):
@@ -270,7 +271,9 @@ class myView(pyHtmlView):
         print(resultsHandler())
 ```
 
-You can also eval javascript code dynamically.
+You can also eval javascript code dynamically.  
+Keyword arguments passed to **`eval_javascript`** are available as **`args`** array inside the evaled Javascript.
+ 
 ```python
 class myView(pyHtmlView):
     TEMPLATE_STR = '''
@@ -317,9 +320,10 @@ class AppView(PyHtmlView):
 - PyHtmlView.**__init\__(subject, parent)**  
     Create a new view instance, attaches default event that observes the **`subject`** and calls
     **`_on_subject_updated()`** when the subject notifies its observers.
-    Use **`parent`** in nested views to access the **`parent`** view that contains this element.
-    This keeps track of visible/invisible elements and attaches/detached events appropriatley.
     To prevent attaching of the default event, overwrite **`_on_subject_updated`** to None.
+    Use **`parent`** in nested views to access the **`parent`** view that contains this element.
+    **`parent`** also keeps track of visible/invisible elements and attaches/detached events appropriatley.
+    
     
 - PyHtmlView.**render()**  
     Returns the rendered template string as markup element. It can be use in other templates via
@@ -327,7 +331,7 @@ class AppView(PyHtmlView):
 
 - PyHtmlView.**update()**  
     Update the DOM element in place. View must have been rendered before and be visible in the DOM.
-    By default, this function is called from **`_on_subject_updated`** when the observed **`subject`** changes.
+    By default, this function is called from **`_on_subject_updated`** when the observed **`subject`** changes and the view is visible.
 
 - PyHtmlView.**call_javascript(fname, args, skip_results)**  
     Call frontend javascript function **`fname`**. Supply a list of args if needed.

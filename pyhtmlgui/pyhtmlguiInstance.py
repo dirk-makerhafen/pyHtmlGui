@@ -47,7 +47,7 @@ class PyHtmlGuiInstance:
         if visible is True:
             self.update()
 
-    def call_javascript(self, js_function_name: str, args: list, skip_results: bool = False):
+    def call_javascript(self, js_function_name: str, args: list = None, skip_results: bool = False):
         """
         Call javascript function in frontend.
         :param js_function_name: Name of javascript function
