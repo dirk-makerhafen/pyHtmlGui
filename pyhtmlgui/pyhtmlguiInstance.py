@@ -233,43 +233,15 @@ class PyHtmlGuiInstance:
             Replace onclick="pyview.my_function(arg1,arg2)"
             with    onclick="pyhtmlgui.call({{_create_py_function_reference(pyview.my_function)}}, arg1, arg2)
         """
-        parts = template.split("{%")
-        for i in range(1, len(parts)):
-            parts[i] = "{%%%s" % parts[i]
+        parts = re.split('({{|}}|{%|%})', template)
+        index = 0
+        while index < len(parts):
+            if parts[index] == "{{" or parts[index] == "{%" :
+                parts[index] = "%s%s%s" % (parts[index] , parts[index+1], parts[index+2])
+                del parts[index+ 1]
+                del parts[index+ 1]
+            index += 1
 
-        new_parts = []
-        for part in parts:
-            if not part.startswith("{%"):
-                new_parts.append(part)
-            else:
-                parts1 = part.split("%}")
-                if len(parts1) > 1:
-                    parts1[0] = "%s%%}" % parts1[0]
-                for p in parts1:
-                    new_parts.append(p)
-
-        parts = new_parts
-        new_parts = []
-        for part in parts:
-            parts1 = part.split("{{")
-            for i in range(1, len(parts1)):
-                parts1[i] = "{{%s" % parts1[i]
-            for p in parts1:
-                new_parts.append(p)
-
-        parts = new_parts
-        new_parts = []
-        for part in parts:
-            if not part.startswith("{{"):
-                new_parts.append(part)
-            else:
-                parts1 = part.split("}}")
-                if len(parts1) > 1:
-                    parts1[0] = "%s}}" % parts1[0]
-                for p in parts1:
-                    new_parts.append(p)
-
-        parts = new_parts
         new_parts = []
         for i, part in enumerate(parts):
             if part.startswith("{{") or part.startswith("{%") or part.find("pyview.") == -1:
