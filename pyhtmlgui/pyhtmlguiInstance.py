@@ -43,7 +43,8 @@ class PyHtmlGuiInstance:
         """
         if visible is False:
             for child in self._children:
-                child.set_visible(False)
+                if child.is_visible is True:
+                    child.set_visible(False)
         if visible is True:
             self.update()
 

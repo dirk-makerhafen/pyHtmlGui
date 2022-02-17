@@ -126,7 +126,8 @@ class PyHtmlView:
         """
         if self.is_visible is True and remove_from_dom is True:
             self.call_javascript("pyhtmlgui.remove_element", [self.uid], skip_results=True)
-        self.set_visible(False)
+        if self.is_visible is True:
+            self.set_visible(False)
         self.parent._remove_child(self)
         for child in self._children:
             child.delete(remove_from_dom=False)
@@ -147,7 +148,8 @@ class PyHtmlView:
                 except Exception:
                     pass
             for child in self._children:
-                child.set_visible(False)
+                if child.is_visible is True:
+                    child.set_visible(False)
         else:
             self.is_visible = True
             for observable, target in self._observables:
@@ -189,9 +191,11 @@ class PyHtmlView:
         if self._subject is None:  # Observed object died before render
             return None
 
-        self.set_visible(True)
         for child in self._children:
             child.__was_rendered = False
+
+        if self.is_visible is False:
+            self.set_visible(True)
 
         try:
             html = self._instance.get_template(self).render({"pyview": self})
