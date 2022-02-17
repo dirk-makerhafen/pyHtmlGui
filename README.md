@@ -178,6 +178,7 @@ gui = PyHtmlGui(
 gui.start()
 ```
 
+
 ### PyHtmlGui Options
 
 Additional options can be passed to the PyHtmlGui constructor as keyword arguments.
@@ -367,7 +368,7 @@ class AppView(PyHtmlView):
   
 
 
-### PyHtmlView render customisation
+### PyHtmlView render customization
 
 Your view classes that inherit from PyHtmlView have several options to customize how their 
 container is rendered.
