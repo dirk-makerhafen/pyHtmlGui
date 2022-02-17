@@ -11,11 +11,12 @@ PyHtmlGui is a Python library for building simple, fast, Electron-like offline H
 PyHtmlGui is designed to take the hassle out of writing GUI applications.
 It allows python developers to write beautiful, modern and fast HTML user interfaces without 
 any boilerplate code and with minimal javascript knowledge.  
+
 If you are familiar with Python and HTML, probably just jump to
  [this example](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/full) 
 which show most functions of PyHtmlGui in one simple app. 
 
-PyHtmlGui is inspired by pyhon [eel](https://github.com/ChrisKnott/Eel) and javascript [React](https://reactjs.org/).
+PyHtmlGui is inspired by Python [eel](https://github.com/ChrisKnott/Eel) and Javascript [React](https://reactjs.org/).
 
 
 Example app screenshot:
@@ -44,9 +45,9 @@ Example app screenshot:
 
 There are several options for making GUI apps in Python, but if you want to use HTML/JS (in order to use jQueryUI or Bootstrap, for example) then you generally have to write a lot of boilerplate code to communicate from the Client (Javascript) side to the Server (Python) side.  
 PyHtmlGui gets rid of all this boilerplate.   
-It automatically renders and updates python objects in HTML, somewhat like react, and allows direct calls from Python to Javascript and vice versa,
+It automatically renders and updates python objects in HTML, somewhat like React, and allows direct calls from Python to Javascript and vice versa,
 including async or synchronous results from one language to the other.
-It also allows running your python app inside electron, see [example](#using-from-inside-electron).
+It also allows running your Python app inside electron, see [example](#using-from-inside-electron).
 
 
 ### Install
@@ -221,7 +222,8 @@ Additional options can be passed to the PyHtmlGui constructor as keyword argumen
 
 ### PyHtmlGui Methods
 
-PyHtmlGui has only 4 relavant public methods:
+PyHtmlGui has only 4 relevant public methods:
+
 - PyHtmlGui.**__init\__(\*\*kwargs)**:  
    Create a new PyHtmlGui instance. See list above for detailed description of **`kwargs`**
     
@@ -269,7 +271,6 @@ class myView(pyHtmlView):
 ```
 
 You can also eval javascript code dynamically.
-
 ```python
 class myView(pyHtmlView):
     TEMPLATE_STR = '''
