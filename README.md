@@ -6,17 +6,23 @@
 [![License](https://img.shields.io/pypi/l/PyHtmlGui.svg?style=for-the-badge)](https://pypi.org/project/PyHtmlGui/)
 
 
-PyHtmlGui is a Python library for building simple, fast, Electron-like offline HTML/JS GUI apps, with full access to Python capabilities and libraries.
+PyHtmlGui is a Python library for creating fast, easy to build, HTML/JS user interfaces 
+with seamless interaction between Python and Javascript/HTML.
 
 PyHtmlGui is designed to take the hassle out of writing GUI applications.
 It allows python developers to write beautiful, modern and fast HTML user interfaces without 
 any boilerplate code and with minimal javascript knowledge.  
 
-If you are familiar with Python and HTML, probably just jump to
- [this example](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/full) 
-which show most functions of PyHtmlGui in one simple app. 
+PyHtmlGui enables seamless function calls from Javascript to Python and the reverse, including synchronous and asynchronous return values from one language to the other.
+It creates reactive user interfaces by following the observer pattern to automatically update the HTML frontend if the underlying python model changes. 
 
 PyHtmlGui is inspired by Python [eel](https://github.com/ChrisKnott/Eel) and Javascript [React](https://reactjs.org/).
+
+If you are familiar with Python and HTML, probably just jump to
+[Minimal App](#minimal-app) below, or dive right into 
+ this [example code](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/full) 
+which show most functions of PyHtmlGui in one simple app. 
+
 
 
 Example app screenshot:
@@ -26,7 +32,6 @@ Example app screenshot:
 <!-- TOC -->
 
 - [PyHtmlGui](#pyhtmlgui)
-- [Intro](#intro)
 - [Install](#install)
 - [Minimal App](#minimal-app)
 - [Directory Structure](#directory-structure)
@@ -40,14 +45,6 @@ Example app screenshot:
 - [Renderer details](#renderer-details)
 
 <!-- /TOC -->
-
-### Intro
-
-There are several options for making GUI apps in Python, but if you want to use HTML/JS (in order to use jQueryUI or Bootstrap, for example) then you generally have to write a lot of boilerplate code to communicate from the Client (Javascript) side to the Server (Python) side.  
-PyHtmlGui gets rid of all this boilerplate.   
-It automatically renders and updates python objects in HTML, somewhat like React, and allows direct calls from Python to Javascript and vice versa,
-including async or synchronous results from one language to the other.
-It also allows running your Python app inside electron, see [example](#using-from-inside-electron).
 
 
 ### Install
@@ -139,19 +136,9 @@ static/         <- Static content, add what you need
 run.py
 ```
 
-JS/CSS files are included by the apps base template. By default this is 'pyHtmlGuiBase.html' from pyhtmlgui/assets/templates.
+JS/CSS files are included by the apps base template. By default this is *pyHtmlGuiBase.html* from *pyhtmlgui/assets/templates*.
 To extend this file and load your custom css/js, create a html file in your template dir and set matching options when initializing PyHtmlGui.
 
-*run.py*
-```python
-gui = PyHtmlGui(
-    ...
-    base_template = "base.html",
-    template_dir  = "templates",
-    static_dir    = "static"
-)
-gui.start()
-```
 *templates/base.html*
 ```html
 {% extends 'pyHtmlGuiBase.html' %}
@@ -168,16 +155,28 @@ gui.start()
     <title>PyHtmlGui Example App</title>
 {% endblock %}
 ```
+
 *templates/appView.html*
 ```html
 <p>Hello World</p>
 ```
+
 *views/appView.py*
 ```python
 class AppView(pyHtmlView):
     TEMPLATE_FILE = "appView.html"
 ```
 
+*run.py*
+```python
+gui = PyHtmlGui(
+    ...
+    base_template = "base.html",
+    template_dir  = "templates",
+    static_dir    = "static"
+)
+gui.start()
+```
 
 ### PyHtmlGui Options
 
@@ -527,7 +526,7 @@ At the first rendering step, the convinience function notion will be replaced wi
 <button onclick="pyhtmlgui.call({{_create_py_function_reference(pyview.addOne)}}, {{pyview.addOne(1)}}).then(function(e){alert(e);})"></button>
 ```
 After the final render this is the actual content that is send to the browser. The inner **`pyview.addOne`** function has been resolved at render 
-time, and some magic function reference has been created in the background to access the outer **`pyview.addOne`** function of pyview later.
+time, and some magic function reference has been created in the background to access the outer **`pyview.addOne`** function later.
 ```html
 <button onclick="pyhtmlgui.call(24325642347682, 2).then(function(e){alert(e);})"></button>
 ```
