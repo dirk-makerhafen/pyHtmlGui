@@ -207,9 +207,9 @@ Additional options can be passed to the PyHtmlGui constructor as keyword argumen
         A string specifying what browser to use (e.g. `'default'`, `'chrome'`, `'chrome'`, `'electron'`). `'default'` opens your systems default browser. *Default: `'default'`*.
   - **executable**: 
         Path to browser executable, if needed.
-  - **listen_host**:   
+  - **listen_host**: 
         A string specifying what hostname to use for the server. *Default: `'localhost'`)*   
-  - **listen_port**: 
+  - **listen_port**:
         An int specifying what port to use for the server.  *Default: `8000`*.    
   - **shared_secret**: 
         Add a security token to prevent unauthorized access to the webserver, use "" to automatically generate internally, None to disable token *Default: `None`*.
