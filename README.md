@@ -19,9 +19,8 @@ It creates reactive user interfaces by following the observer pattern to automat
 PyHtmlGui is inspired by Python [eel](https://github.com/ChrisKnott/Eel) and Javascript [React](https://reactjs.org/).
 
 If you are familiar with Python and HTML, probably just jump to
-[Minimal App](#minimal-app) below, or dive right into 
- this [example code](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/full) 
-which show most functions of PyHtmlGui in one simple app. 
+[Minimal App](#minimal-app) below, or dive right into  this [example code](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/full) 
+that shows most functions of PyHtmlGui in one simple app. 
 
 
 
