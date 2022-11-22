@@ -79,18 +79,12 @@ class PyHtmlGuiInstance:
             if skip_results is False:
                 websocket_connection.javascript_call_result_objects[self._call_number] = javascript_call_result
                 javascript_call_result.add_call(websocket_connection)
-            websocket_connection.ws.send(data)
+            websocket_connection.send(data)
         return javascript_call_result
 
     def websocket_loop(self, websocket_connection) -> None:
         self._websocket_connections.append(websocket_connection)
-        while True:
-            msg = websocket_connection.ws.receive()
-            if msg is not None:
-                message = json.loads(msg)
-                gevent.spawn(self._websocket_process_message, message, websocket_connection).run()
-            else:
-                break
+        websocket_connection.loop(self._websocket_process_message)
         self._websocket_connections.remove(websocket_connection)
         if len(self._websocket_connections) == 0:
             self.set_visible(False)
@@ -136,13 +130,13 @@ class PyHtmlGuiInstance:
                 tb = traceback.format_exc()
                 msg = " Exception in: %s(%s)\n" % (function_name, ("%s" % args)[1:-1])
                 msg += " %s" % tb.replace("\n", "\n  ").strip()
-                self.call_javascript("pyhtmlgui.debug_msg", [msg])
+                self.call_javascript("pyhtmlgui.debug_msg", [msg],skip_results=True)
                 print(msg)
                 return_val = None
 
             if not ("skip_results" in message and message["skip_results"] is True):
                 data = json.dumps({'return': message['call'], 'value': return_val}, default=lambda o: None)
-                websocket_connection.ws.send(data)
+                websocket_connection.send(data)
 
         elif 'return' in message:
             call_id = message['return']

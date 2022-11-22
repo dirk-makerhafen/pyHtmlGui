@@ -126,7 +126,10 @@ class PyHtmlView:
             self.call_javascript("pyhtmlgui.remove_element", [self.uid], skip_results=True)
         if self.is_visible is True:
             self.set_visible(False)
-        self.parent._remove_child(self)
+        try:
+            self.parent._remove_child(self)
+        except:
+            pass
         for child in self._children:
             child.delete(remove_from_dom=False)
 
@@ -216,7 +219,10 @@ class PyHtmlView:
         self._children.add(child)
 
     def _remove_child(self, child: PyHtmlView) -> None:
-        self._children.remove(child)
+        try:
+            self._children.remove(child)
+        except: # ignore if weak ref faild to resolve
+            pass
 
     def add_observable(self, subject: Observable, target_function: typing.Callable = None) -> None:
         try:

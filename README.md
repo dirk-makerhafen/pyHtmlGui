@@ -395,7 +395,8 @@ rendered html:
 <p class="myFoo myBar" style="color:red;" id="pvf6p3p7uiirkwac40">test</p>
 ```
 
-You can make these parameters dynamic, so they are applied every time the dom element is updated.
+You can make DOM_ELEMENT, DOM_ELEMENT_CLASS and DOM_ELEMENT_EXTRAS dynamic, so they are applied every time the dom element is updated.
+This does not work for TEMPLATE_STR because the template is prepared once and cached.
 ```python
 class myView(PyHtmlView):
     TEMPLATE_STR = "test"

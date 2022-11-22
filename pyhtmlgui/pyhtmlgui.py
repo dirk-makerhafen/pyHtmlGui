@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import queue
 import shutil
 import sys
 import threading
@@ -181,6 +182,23 @@ class PyHtmlGui:
         if bottle.request.get_cookie("token") != self._token_cookie:
             return bottle.HTTPResponse(status=403)
         response = bottle.static_file(path, root=self.static_dir)
+        if path.endswith(".js"):
+            response.set_header("Content-Type", "application/javascript")
+        elif path.endswith(".html"):
+            response.set_header("Content-Type", "text/html")
+        elif path.endswith(".css"):
+            response.set_header("Content-Type", "text/css")
+        elif path.endswith(".jpg") or path.endswith(".jpeg"):
+            response.set_header("Content-Type", "image/jpeg")
+        elif path.endswith(".png"):
+            response.set_header("Content-Type", "image/png")
+        elif path.endswith(".gif"):
+            response.set_header("Content-Type", "image/gif")
+        elif path.endswith(".webp"):
+            response.set_header("Content-Type", "image/webp")
+        elif path.endswith(".svg"):
+            response.set_header("Content-Type", "image/svg")
+
         response.set_header("Cache-Control", "public, max-age=36000")
         return response
 
@@ -286,3 +304,36 @@ class WebsocketConnection:
         self.ws = ws
         self.javascript_call_result_queues = {}
         self.javascript_call_result_objects = {}
+        self.active = True
+        self.send_queue =queue.Queue()
+        self._send_t = threading.Thread(target=self._send_loop, daemon=True)
+        self._send_t.start()
+
+    def loop(self, callback):
+        while self.active is True:
+            msg = self.ws.receive()
+            if msg is None:
+                break
+            try:
+                callback(json.loads(msg), self.ws)
+            except:
+                continue
+        self.active = False
+        if self.send_queue is not None:
+            self.send_queue.put(None)
+
+    def _send_loop(self):
+        while self.active is True:
+            message = self.send_queue.get()
+            if message is None:
+                break
+            try:
+                self.ws.send(message)
+            except:
+                pass
+        self.active = False
+        self.send_queue = None
+
+    def send(self, message):
+        if self.send_queue is not None:
+            self.send_queue.put(message)
