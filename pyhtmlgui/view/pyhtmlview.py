@@ -130,8 +130,12 @@ class PyHtmlView:
             self.parent._remove_child(self)
         except:
             pass
-        for child in self._children:
-            child.delete(remove_from_dom=False)
+
+        for child in [c for c in self._children]:
+            try:
+                child.delete(remove_from_dom=False)
+            except:
+                pass
 
     def set_visible(self, visible: bool) -> None:
         """
@@ -148,9 +152,11 @@ class PyHtmlView:
                     observable().detach_observer(target())  # resolve weak references
                 except Exception:
                     pass
-            for child in self._children:
-                if child.is_visible is True:
+            for child in [c for c in self._children if c.is_visible is True]:
+                try:
                     child.set_visible(False)
+                except:
+                    pass
         else:
             self.is_visible = True
             for observable, target in self._observables:
@@ -192,8 +198,11 @@ class PyHtmlView:
         if self._subject is None:  # Observed object died before render
             return None
 
-        for child in self._children:
-            child.__was_rendered = False
+        for child in [c for c in self._children]:
+            try:
+                child.__was_rendered = False
+            except:
+                pass
 
         if self.is_visible is False:
             self.set_visible(True)
@@ -209,7 +218,12 @@ class PyHtmlView:
             print(msg)
 
         # set children that have not been rendered in last pass to invisible
-        [c.set_visible(False) for c in self._children if c.__was_rendered is False and c.is_visible is True]
+        children = [c for c in self._children if c.__was_rendered is False and c.is_visible is True]
+        for child in children:
+            try:
+                child.set_visible(False)
+            except:
+                pass
 
         self.__was_rendered = True
         self._subject = None  # remove hard reference to subject, it may die now
