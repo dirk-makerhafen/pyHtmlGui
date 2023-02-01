@@ -6,15 +6,15 @@
 [![License](https://img.shields.io/pypi/l/PyHtmlGui.svg?style=for-the-badge)](https://pypi.org/project/PyHtmlGui/)
 
 
-PyHtmlGui is a Python library for creating fast, easy to build, HTML/JS user interfaces 
-with seamless interaction between Python and Javascript/HTML.
+PyHtmlGui is a Python library for creating fast, easy to build, HTML/CSS/JS user interfaces 
+with seamless interaction between Python and Javascript/HTML. It can be used to create web applications,
+but also fully functional desktop applications, similar to Electron. 
+
+PyHtmlGui creates reactive user interfaces by following the observer pattern to automatically update the HTML frontend if the underlying python model changes. 
 
 PyHtmlGui is designed to take the hassle out of writing GUI applications.
-It allows python developers to write beautiful, modern and fast HTML user interfaces without 
-any boilerplate code and with minimal javascript knowledge.  
-
-PyHtmlGui enables seamless function calls from Javascript to Python and the reverse, including asynchronous return values from one language to the other.
-It creates reactive user interfaces by following the observer pattern to automatically update the HTML frontend if the underlying python model changes. 
+It allows python developers to write HTML user interfaces without 
+any boilerplate code. It enables seamless function calls from Javascript to Python and the reverse, including asynchronous return values from one language to the other.
 
 PyHtmlGui is inspired by Python [eel](https://github.com/ChrisKnott/Eel) and Javascript [React](https://reactjs.org/).
 
@@ -296,7 +296,6 @@ Additional options can be passed to the PyHtmlGui constructor as keyword argumen
         Create only one view instance and share it between all connected websockets. 
         Try examples/full app and notice the animation and tab view in sync between multiple browser windows. *Default: `True`*.
 
-
 ### PyHtmlGui Methods
 
 PyHtmlGui has only 5 relevant public methods:
@@ -369,32 +368,51 @@ class myView(pyHtmlView):
 ```
 
 
-### PyHtmlView methods
+### PyHtmlView Nesting
 
 All your views should inherit from PyHtmlView. 
-PyHtmlView observes your python app logic object(s) and provides rendering methods as well 
-as event and javascript handling. 
 
 ```python
+class Status(Observable):
+    def __init__(self):
+        self.status = ""
+
+    def set(self, new_status):
+        self.status = new_status
+        self.notify_observers()
+
 class AppSub(Observable):
     def __init__(self):
-        self.value = 23
+        self.status = Status()
+        self.value = 0
+    def set_value(self, new_value):
+        self.value = new_value
+        self.notify_observers()
 
 class App(Observable):
     def __init__(self):
         self.appSub = AppSub()
     
+class StatusView(PyHtmlView):
+    TEMPLATE_STR = 'Status: {{pyview.subject.status}}'
+
 class AppSubView(PyHtmlView):
-    TEMPLATE_STR = '{{pyview.subject.value}}'
+    TEMPLATE_STR = '''
+        Value: {{pyview.subject.value}}<br>
+        {{pyview.statusView.render()}}
+    '''
+    def __init__(self, subject, parent, **kwargs):
+        super().__init__(subject, parent, **kwargs)
+        self.statusView = StatusView(subject.status, self)
 
 class AppView(PyHtmlView):
     TEMPLATE_STR = '''Some Subview: {{pyview.subview.render()}}'''
-
     def __init__(self, subject, parent, **kwargs):
         super().__init__(subject, parent, **kwargs)
         self.subview = AppSubView(subject.appSub, self)
 ```
 
+### PyHtmlView methods
 
 - PyHtmlView.**__init\__(subject, parent)**  
     Create a new view instance, attaches default event that observes the **`subject`** and calls
