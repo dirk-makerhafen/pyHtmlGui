@@ -2,41 +2,6 @@ import sys
 import os
 import subprocess
 import whichcraft
-import webbrowser
-
-
-class Browser:
-    def __init__(self, browsername="default", executable=None):
-        self.browsername = browsername
-        self.executable = executable
-        self.browserInstance = None
-        if browsername == "default":
-            self.browserInstance = BrowserDefault(self.executable)
-        elif browsername == "chrome":
-            self.browserInstance = BrowserChrome(self.executable)
-        elif browsername == "electron":
-            self.browserInstance = BrowserElectron(self.executable)
-        else:
-            raise Exception("Unknown mode '%s', use 'default' for system browser or 'chrome' or 'electron'")
-
-    def open(self, browser_args, **kwargs) -> None:
-        self.browserInstance.run(browser_args, **kwargs)
-
-
-class BrowserDefault:
-    def __init__(self, executable: str = None):
-        self.executable = executable
-
-    def run(self, browser_args, **kwargs) -> None:
-        start_url = browser_args[0]
-        if not start_url.startswith("http"):
-            start_url = "http://" + start_url
-        if self.executable is None:
-            webbrowser.open(start_url)
-        else:
-            cmd = [self.executable, start_url]
-            subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr, stdin=subprocess.PIPE)
-
 
 class BrowserElectron:
     def __init__(self, executable: str) -> None:
@@ -49,8 +14,6 @@ class BrowserElectron:
             raise Exception("Electron executable could not be found at '%s'" % self.executable)
 
     def run(self, browser_args, env=None, **kwargs) -> None:
-        if env is None:
-            env = os.environ.copy()
         cmd = [
                   self.executable,
                   '--no-sandbox',
@@ -71,25 +34,10 @@ class BrowserElectron:
         else:
             return None
 
-
 class BrowserChrome:
-    def __init__(self, executable: str) -> None:
-        self.executable = executable
-        if self.executable is None:
-            self.executable = self._find_path()
-        if self.executable is None:
-            raise Exception("Chrome executable could not be found")
-        if not os.path.isfile(self.executable):
-            raise Exception("Chrome executable could not be found at '%s'" % self.executable)
-
-    def run(self, browser_args, env=None, **kwargs) -> None:
-        start_url = browser_args[0]
-        if not start_url.startswith("http"):
-            start_url = "http://" + start_url
-        cmd = [
-            self.executable,
-            start_url,
-        ]
+    def open(self, url, args):
+        cmd = args[:]
+        cmd += url
         subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=sys.stderr, stdin=subprocess.PIPE)
 
     def _find_path(self):

@@ -1,12 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
+        <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
         <script>
-
             let csrf_token = "{{ csrf_token }}";
             let start_size = {{ start_size }};
             let start_position = {{ start_position }};
             let electron_ipc = null;
+            let connected = false;
+            let pyhtmlqtChannel = null;
+            let pyhtmlapp = new Proxy(new Object(), {
+                get(target, name) {
+                    return function(...args) {
+                        return new Promise((resolve, reject) => {
+                            args_str = JSON.stringify(args, (k, v) => v === undefined ? null : v);
+                            pyhtmlqtChannel.call(name, args_str, (result) => {
+                                var r = JSON.parse(result);
+                                if(r.result !== undefined){
+                                    resolve(r);
+                                }else{
+                                    console.error(r.exception)
+                                }
+                            });
+                        });
+                    }
+                }
+            });
+            new QWebChannel(qt.webChannelTransport, function (channel) {
+                pyhtmlqtChannel = channel.objects.pyhtmlapp;
+            });
 
             if(typeof require !== "undefined"){
                 window.nodeRequire = require;
@@ -49,6 +71,17 @@
                             pyhtmlgui._websocket.send(pyhtmlgui._toJSON(python_call_object));
                         });
                     }
+                    pyhtmlgui._ping()
+                },
+
+                _ping: function() {
+                    if(connected == true){
+                        let python_call_object = pyhtmlgui._create_python_call_obj("ping", [], skip_results = true);
+                        pyhtmlgui._websocket.send(pyhtmlgui._toJSON(python_call_object));
+                    }
+                    setTimeout(function (){
+                        pyhtmlgui._ping();
+                    }, 30000);
                 },
 
                 _connect: function() {
@@ -57,6 +90,7 @@
                     pyhtmlgui._websocket.onopen = function() {
                         let python_call_object = pyhtmlgui._create_python_call_obj("frontend_ready", [], skip_results = true);
                         pyhtmlgui._websocket.send(pyhtmlgui._toJSON(python_call_object));
+                        connected = true;
                     };
 
                     pyhtmlgui._websocket.onmessage = function (e) {
@@ -116,17 +150,25 @@
                     };
 
                     pyhtmlgui._websocket.onerror = function (err){
+                        connected = false;
                         console.error("Socket encountered error:" + err.message, "Closing socket");
                         pyhtmlgui._websocket.close();
                     }
 
                     pyhtmlgui._websocket.onclose = function (e){
-                        console.warn("Socket is closed, Reconnect in 1 second", e.reason);
-                        setTimeout(function (){
-                            pyhtmlgui._connect();
-                        }, 1000);
+                        connected = false;
+                        if(e.reason === "token_failed"){
+                            console.warn("Token failed, reloading page in 2 second", e.reason);
+                            setTimeout(function (){
+                                window.location.reload();
+                            }, 2000);
+                        }else{
+                            console.warn("Socket is closed, Reconnect in 2 second", e.reason);
+                            setTimeout(function (){
+                                pyhtmlgui._connect();
+                            }, 2000);
+                        }
                     }
-
                 },
 
                 _create_python_call_obj: function(py_function_name, args, skip_results) {
@@ -176,6 +218,13 @@
                     pyhtmlgui._execute_scripts(new_element);
                     return true;
                 },
+                move_element: function (parentElementId, index, childElementId) {
+                    var parentElement = document.getElementById(parentElementId);
+                    var childElement = document.getElementById(childElementId);
+                    parentElement.removeChild(childElement);
+                    parentElement.insertBefore(childElement, parentElement.children[index]);
+                    return true;
+                },
                 replace_element: function(elementId, content) {
                     var template = document.createElement('template');
                     template.innerHTML = content.trim();
@@ -206,8 +255,8 @@
                 },
 
             }
-
             pyhtmlgui._init();
+
 
         </script>
 

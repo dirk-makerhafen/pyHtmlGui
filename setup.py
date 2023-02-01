@@ -2,18 +2,17 @@ import setuptools
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
-print(setuptools.find_packages())
 
 setuptools.setup(
     name="pyhtmlgui",
-    version="2.9",
+    version="3.6",
     author="Dirk Makerhafen",
     author_email="dirk@makerhafen.de",
     description="A Python library for building user interfaces",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/dirk-makerhafen/pyHtmlGui",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_namespace_packages(),
     license='MIT',
     classifiers=[
         "Programming Language :: Python :: 3",

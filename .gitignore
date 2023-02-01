@@ -27,6 +27,7 @@ share/python-wheels/
 *.egg
 .idea
 MANIFEST
+examples/launchers/run.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

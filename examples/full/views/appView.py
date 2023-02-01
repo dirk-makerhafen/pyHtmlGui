@@ -7,7 +7,22 @@ from .animationView import AnimationView
 
 
 class AppView(PyHtmlView):
-    TEMPLATE_FILE = "appView.html"
+    TEMPLATE_STR = '''
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <h3>PyHtmlGui Examples App</h3>
+                </div>
+            </div>
+            <div class="appsection">{{ pyview.counterView.render() }} </div>
+            <div class="appsection">{{ pyview.counterInListView.render() }} </div>
+            <div class="appsection">{{ pyview.counterInDictView.render() }} </div>
+            <div class="appsection">{{ pyview.twoCounters.render() }} </div>
+            <div class="appsection">{{ pyview.animation.render() }} </div>
+            <br><br><br><br>
+        </div>
+    '''
+    # OR: TEMPLATE_FILE = "appView.html", but inline templates are pretty convienient for short templates
 
     def __init__(self, subject, parent, **kwargs):
         super().__init__(subject, parent, **kwargs)

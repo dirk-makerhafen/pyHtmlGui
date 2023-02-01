@@ -44,7 +44,7 @@ class PyHtmlView:
         else:
             self._instance = parent._instance
 
-        # attach default observation event and detach because default componens is invisible until rendered
+        # by default we observe the subject
         if self._on_subject_updated is not None:
             try:
                 self.add_observable(self.subject)
@@ -115,6 +115,14 @@ class PyHtmlView:
             return True
         return False
 
+    def move_element(self, index: int, element: PyHtmlView) -> bool:
+        """
+        Move existing element to position index.
+        This is used for example in ObservableDictView and ObservableListView to reorder elements without rerendering.
+        """
+        self.call_javascript("pyhtmlgui.move_element", [self.uid, index, element.uid], skip_results=True)
+        return True
+
     def delete(self, remove_from_dom: bool = True) -> None:
         """
         Delete element, detach events, remove from parent, remove from frontend if element is visible
@@ -124,18 +132,12 @@ class PyHtmlView:
         """
         if self.is_visible is True and remove_from_dom is True:
             self.call_javascript("pyhtmlgui.remove_element", [self.uid], skip_results=True)
-        if self.is_visible is True:
-            self.set_visible(False)
+        self.set_visible(False)
         try:
             self.parent._remove_child(self)
         except:
             pass
-
-        for child in [c for c in self._children]:
-            try:
-                child.delete(remove_from_dom=False)
-            except:
-                pass
+        self._children.clear()
 
     def set_visible(self, visible: bool) -> None:
         """
@@ -152,7 +154,7 @@ class PyHtmlView:
                     observable().detach_observer(target())  # resolve weak references
                 except Exception:
                     pass
-            for child in [c for c in self._children if c.is_visible is True]:
+            for child in self._children:
                 try:
                     child.set_visible(False)
                 except:
@@ -198,7 +200,7 @@ class PyHtmlView:
         if self._subject is None:  # Observed object died before render
             return None
 
-        for child in [c for c in self._children]:
+        for child in self._children:
             try:
                 child.__was_rendered = False
             except:
@@ -218,10 +220,10 @@ class PyHtmlView:
             print(msg)
 
         # set children that have not been rendered in last pass to invisible
-        children = [c for c in self._children if c.__was_rendered is False and c.is_visible is True]
-        for child in children:
+        for child in self._children:
             try:
-                child.set_visible(False)
+                if child.__was_rendered is False and child.is_visible is True:
+                    child.set_visible(False)
             except:
                 pass
 

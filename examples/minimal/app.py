@@ -45,7 +45,6 @@ class CounterAppView(PyHtmlView):
         # note multiple results if multiple frontends are connected AND PyHtmlGui.single_instance is True (the default)
 
 
-# Main
 if __name__ == "__main__":
     gui = PyHtmlGui(
         app_instance = CounterApp(),

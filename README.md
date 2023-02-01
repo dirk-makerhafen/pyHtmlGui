@@ -34,17 +34,21 @@ Example app screenshot:
 - [Install](#install)
 - [Minimal App](#minimal-app)
 - [Directory Structure](#directory-structure)
+- [Creating a native App](#startup-mode)
+  - [Simple tray with default browser](#default-browser)
+  - [Native app](#app-mode)
+  - [Native app with simple tray](#app-mode)
+  - [Native app with complex tray](#app-mode)
 - [PyHtmlGui Options](#pyhtmlgui-options)
 - [PyHtmlGui Methods](#pyhtmlgui-methods)
 - [Calling Python from Javascript](#calling-python-from-javascript)
 - [Calling Javascript from Python](#calling-javascript-from-python)
 - [PyHtmlView methods](#pyhtmlview-methods)
 - [PyHtmlView render customisation](#pyhtmlview-render-customisation)
-- [Using from inside Electron](#using-from-inside-electron)
 - [Renderer details](#renderer-details)
+- [Using from inside Electron](#using-from-inside-electron)
 
 <!-- /TOC -->
-
 
 ### Install
 
@@ -178,6 +182,84 @@ gui.start()
 ```
 
 
+### Creating a native App
+PyHtmlGui creates a web(socket) server that will serve html created from your views.
+
+In some cases, you might simply use a browser to access your gui. 
+ 
+However, at some point you might want to create a native app, maybe a tray icon and all the normal app stuff.
+ 
+To save you from writing ~300 lines of annoying Qt code to set this all up, pyHmlGui provides some convience classes for you.
+They should fit many needs, but if you need more, you can simply extend or copy/paste them as a great starting point.
+
+All examples below and some more can be found in [examples/launchers/](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/launchers/) . 
+
+
+##### Initializing
+
+```python
+from pyhtmlgui.apps import PyHtmlChromeApp
+from pyhtmlgui.apps.qt import PyHtmlQtApp, PyHtmlQtWindow, PyHtmlQtTray, PyHtmlQtSimpleTray
+import webbrowser
+
+applogic = MySuperApp()
+guiservice = PyHtmlGui(
+    app_instance = applogic,
+    view_class   = MySuperAppView,
+)
+guiservice.start(block=False)
+```
+
+##### Simple tray with default browser
+```python
+qt_app = PyHtmlQtApp()
+tray   = PyHtmlQtSimpleTray(qt_app , icon_path="examples/launchers/app.ico")
+tray.addAction("Show", lambda x:webbrowser.open(guiservice.get_url(), 1))
+tray.addAction("Exit", qt_app.stop)
+qt_app.run() 
+```
+
+##### Native app
+```python
+qt_app = PyHtmlQtApp()
+window = PyHtmlQtWindow(qt_app, guiservice.get_url(), [600, 300], "My App Window Name")
+window.on_closed_event.attach_observer(qt_app.exit)
+window.show()
+qt_app.run()
+```
+
+##### Native app with simple tray
+```python
+qt_app = PyHtmlQtApp()
+window = PyHtmlQtWindow(qt_app, url, [600, 300], "My App Window Name", icon_path="examples/launchers/app.ico")
+tray   = PyHtmlQtSimpleTray(qt_app, icon_path="examples/launchers/app.ico")
+tray.addAction("Show", window.show)
+tray.addAction("Hide", window.close)
+tray.addAction("Exit", qt_app.stop)
+window.on_minimized_event.attach_observer(window.hide) # we minimize to tray
+qt_app.run()
+```
+
+##### Native app with complex tray
+```python
+class TrayView(PyHtmlView):
+    TEMPLATE_STR = '''
+        <button onclick="pyhtmlapp.show_app()" >Show App</button> <br>
+        <button onclick="pyhtmlapp.hide_app()" >Hide App</button> <br>
+        <button onclick="pyhtmlapp.exit()" >Exit App</button> <br>
+    '''
+guiservice.add_endpoint(app_instance=applogic, view_class=TrayView, name="tray")
+qt_app = PyHtmlQtApp()
+tray   = PyHtmlQtTray(  qt_app, guiservice.get_url("tray"), [ 300, 200], icon_path= "examples/launchers/app.ico")
+window = PyHtmlQtWindow(qt_app, guiservice.get_url("")    , [ 600, 300], "My App Window Name")
+tray.addJavascriptFunction("show_app", window.show)
+tray.addJavascriptFunction("hide_app", window.close)
+tray.addJavascriptFunction("exit_app", qt_app.stop)
+window.show()
+qt_app.run()
+```
+
+
 ### PyHtmlGui Options
 
 Additional options can be passed to the PyHtmlGui constructor as keyword arguments.
@@ -202,10 +284,6 @@ Additional options can be passed to the PyHtmlGui constructor as keyword argumen
         A tuple of ints specifying the (width, height) of the main window in pixels *Default: `None`*
   - **position**: 
         A tuple of ints specifying the (X, Y) position of the main windows in pixels.  *Default: `None`*
-  - **browser**: 
-        A string specifying what browser to use (e.g. `'default'`, `'chrome'`, `'chrome'`, `'electron'`). `'default'` opens your systems default browser. *Default: `'default'`*.
-  - **executable**: 
-        Path to browser executable, if needed.
   - **listen_host**: 
         A string specifying what hostname to use for the server. *Default: `'localhost'`)*   
   - **listen_port**:
@@ -221,21 +299,23 @@ Additional options can be passed to the PyHtmlGui constructor as keyword argumen
 
 ### PyHtmlGui Methods
 
-PyHtmlGui has only 4 relevant public methods:
+PyHtmlGui has only 5 relevant public methods:
 
 - PyHtmlGui.**__init\__(\*\*kwargs)**:  
    Create a new PyHtmlGui instance. See list above for detailed description of **`kwargs`**
     
-- PyHtmlGui.**start(show_frontend, block)**:  
-   Launch PyHtmlGui websocket server. If **`show_frontend`** is *true*, the browser defined on **`__init__`** will be started.
+- PyHtmlGui.**start(show_frontend = *False*, block = *True*)**:  
+   Launch PyHtmlGui websocket server. If **`show_frontend`** is *true*, open gui in default browser.
    If **`block`** is *true* this call will block until the server exits.
     
 - PyHtmlGui.**stop()**:
    Stop PyHtmlGui server, this will release a blocking **`start`** call.
 
 - PyHtmlGui.**show()**: 
-    Launch browser defined on **`__init__`**.
+   Open gui in default browser.
 
+- PyHtmlGui.**join()**: 
+   Wait for service to stop.
 
 ### Calling Python from Javascript
 
@@ -323,7 +403,6 @@ class AppView(PyHtmlView):
     Use **`parent`** in nested views to access the **`parent`** view that contains this element.
     **`parent`** also keeps track of visible/invisible elements and attaches/detached events appropriatley.
     
-    
 - PyHtmlView.**render()**  
     Returns the rendered template string as markup element. It can be use in other templates via
     **`{{pyview.subview.render()}}`** to create nested views.
@@ -408,8 +487,44 @@ class myView(PyHtmlView):
 ```
 
 
-### Using from inside Electron
 
+### Renderer details
+
+Templates are jinja2 templates. **`pyview`** is the python view object passed to the jinja renderer. 
+Default jinja rendering rules apply. **`"{{pyview.variable}}"`** will render a variable, 
+**`"{{pyview.myfunction()}}"`** will run myfunction at render time and show its results. 
+**`"{{pyview.subject}}"`** gives access to the app logic object observed to this view. 
+
+If you use **`pyview.`** outside of jinjas tags, some pyHtmlGui magic will be applied:   
+
+
+```python
+class myView():
+    TEMPLATE_STR = '''
+        <button onclick="pyview.addOne({{pyview.addOne(1)}}).then(function(e){alert(e);})">
+        </button>
+    '''
+    def addOne(self, value):
+        return value + 1
+```
+
+
+At the first rendering step, the convinience function notion will be replaced with something the jinja template renderer can use:
+```html
+<button onclick="pyhtmlgui.call({{_create_py_function_reference(pyview.addOne)}}, {{pyview.addOne(1)}}).then(function(e){alert(e);})"></button>
+```
+After the final render this is the actual content that is send to the browser. The inner **`pyview.addOne`** function has been resolved at render 
+time, and some magic function reference has been created in the background to access the outer **`pyview.addOne`** function later.
+```html
+<button onclick="pyhtmlgui.call(24325642347682, 2).then(function(e){alert(e);})"></button>
+```
+After this, clicking the button will show "3"
+
+
+
+
+### Using from inside Electron (DEPRECATED) 
+#### This will be removed soon
 Make electron launch your python app so you can create a shippable electron executable
 what runs your python application logic + views!
 Full code for the example below is available [on github](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/electron) 
@@ -511,34 +626,4 @@ if __name__ == "__main__":
 
 
 
-### Renderer details
 
-Templates are jinja2 templates. **`pyview`** is the python view object passed to the jinja renderer. 
-Default jinja rendering rules apply. **`"{{pyview.variable}}"`** will render a variable, 
-**`"{{pyview.myfunction()}}"`** will run myfunction at render time and show its results. 
-**`"{{pyview.subject}}"`** gives access to the app logic object observed to this view. 
-
-If you use **`pyview.`** outside of jinjas tags, some pyHtmlGui magic will be applied:   
-
-
-```python
-class myView():
-    TEMPLATE_STR = '''
-        <button onclick="pyview.addOne({{pyview.addOne(1)}}).then(function(e){alert(e);})">
-        </button>
-    '''
-    def addOne(self, value):
-        return value + 1
-```
-
-
-At the first rendering step, the convinience function notion will be replaced with something the jinja template renderer can use:
-```html
-<button onclick="pyhtmlgui.call({{_create_py_function_reference(pyview.addOne)}}, {{pyview.addOne(1)}}).then(function(e){alert(e);})"></button>
-```
-After the final render this is the actual content that is send to the browser. The inner **`pyview.addOne`** function has been resolved at render 
-time, and some magic function reference has been created in the background to access the outer **`pyview.addOne`** function later.
-```html
-<button onclick="pyhtmlgui.call(24325642347682, 2).then(function(e){alert(e);})"></button>
-```
-After this, clicking the button will show "3"

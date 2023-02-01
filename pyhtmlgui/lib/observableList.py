@@ -65,3 +65,8 @@ class ObservableList(list, Observable):
     def reverse(self):
         list.reverse(self)
         self.notify_observers(action="reverse")
+
+    def clear(self):
+        """ Remove all items from list. """
+        list.clear(self)
+        self.notify_observers(action="clear")

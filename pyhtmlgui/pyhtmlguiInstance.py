@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import threading
 import typing
 import jinja2
 import weakref
@@ -10,7 +12,6 @@ import inspect
 import json
 import queue
 import importlib
-import gevent
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pyhtmlgui.pyhtmlgui import PyHtmlGui
@@ -19,7 +20,7 @@ from .lib import WeakFunctionReferences
 
 
 class PyHtmlGuiInstance:
-    def __init__(self, parent: PyHtmlGui):
+    def __init__(self, parent: PyHtmlGui, app_instance: object, view_class: typing.Type[PyHtmlView]):
         self._parent = parent
         self._websocket_connections = []
         self._children = weakref.WeakSet()
@@ -28,7 +29,7 @@ class PyHtmlGuiInstance:
         self._call_number = 0
         self._function_references = WeakFunctionReferences()
         self._template_env.globals['_create_py_function_reference'] = self._create_function_reference
-        self._view = self._parent.view_class(parent.app_instance, self)
+        self._view = view_class(app_instance, self)
 
     @property
     def connections_count(self) -> int:
@@ -82,9 +83,10 @@ class PyHtmlGuiInstance:
             websocket_connection.send(data)
         return javascript_call_result
 
-    def websocket_loop(self, websocket_connection) -> None:
+    def process(self, ws) -> None:
+        websocket_connection = WebsocketConnection(ws, self._websocket_process_message)
         self._websocket_connections.append(websocket_connection)
-        websocket_connection.loop(self._websocket_process_message)
+        websocket_connection.process()
         self._websocket_connections.remove(websocket_connection)
         if len(self._websocket_connections) == 0:
             self.set_visible(False)
@@ -122,6 +124,8 @@ class PyHtmlGuiInstance:
                     if hasattr(self._view, "on_frontend_ready"):
                         self._view.on_frontend_ready(len(self._websocket_connections))
 
+                elif message['name'] == "ping":
+                    return_val = None
                 else:
                     return_val = None
                     print("unknown python function", message['name'])
@@ -202,11 +206,8 @@ class PyHtmlGuiInstance:
                 string_to_render = module.TEMPLATE_STR
 
         if self._parent.auto_reload is True:
-            self._parent.add_file_to_monitor(file_to_monitor, item.__class__.__name__)
+            self._parent._add_file_to_monitor(file_to_monitor, item.__class__.__name__)
 
-        #  replace onclick="pyview.my_function(arg1,arg2)"
-        #  with    onclick="pyhtmlgui.call({{_create_py_function_reference(pyview.my_function)}}, arg1, arg2)
-        # this a a convinience function is user does not have to type the annoying stuff and functions look cleaner
         string_to_render = self._prepare_template(string_to_render)
 
         try:
@@ -267,6 +268,58 @@ class PyHtmlGuiInstance:
 
     def _remove_child(self, child: PyHtmlView) -> None:
         self._children.remove(child)
+
+
+class WebsocketConnection:
+    def __init__(self, ws, process_msg_callback):
+        self.ws = ws
+        self.process_msg_callback = process_msg_callback
+        self.javascript_call_result_queues = {}
+        self.javascript_call_result_objects = {}
+        self.active = True
+        self.send_queue = queue.Queue(maxsize=1000)
+        self._send_t = threading.Thread(target=self._send_loop, daemon=True)
+        self._send_t.start()
+
+    def process(self):
+        while self.active is True:
+            try:
+                msg = self.ws.receive()
+            except:
+                msg = None
+            if msg is None:
+                break
+            try:
+                self.process_msg_callback(json.loads(msg), self)
+            except:
+                continue
+        try:
+            self.ws.close()
+        except:
+            pass
+        self.active = False
+        if self.send_queue is not None:
+            self.send_queue.put(None)
+
+    def _send_loop(self):
+        while self.active is True:
+            message = self.send_queue.get()
+            if message is None:
+                break
+            try:
+                self.ws.send(message)
+            except:
+                pass
+        try:
+            self.ws.close()
+        except:
+            pass
+        self.active = False
+        self.send_queue = None
+
+    def send(self, message):
+        if self.send_queue is not None:
+            self.send_queue.put(message)
 
 
 class JavascriptCallResult:

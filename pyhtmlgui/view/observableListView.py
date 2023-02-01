@@ -49,6 +49,8 @@ class ObservableListView(PyHtmlView):
             return
         self._wrapped_data_lock.acquire()
         super().set_visible(visible)
+        for data in self._wrapped_data:
+            data.delete(remove_from_dom=False)
         self._wrapped_data = []
         if self.is_visible is True:  # was set to invisible
             for item in self.subject:
@@ -61,11 +63,21 @@ class ObservableListView(PyHtmlView):
         obj.element_index_used = False
         return obj
 
+    def _recreate(self):
+        for data in self._wrapped_data:
+            data.delete(remove_from_dom=False)
+        self._wrapped_data = []
+        for item in self.subject:
+            self._wrapped_data.append(self._create_item(item))
+
     def _on_subject_updated(self, source, **kwargs):
         try:
             self._wrapped_data_lock.acquire()
+            if "action" not in kwargs:
+                self._recreate()
+                self.update()
 
-            if kwargs["action"] in ["append", "insert"]:
+            elif kwargs["action"] in ["append", "insert"]:
                 obj = self._create_item(kwargs["item"])
                 self._wrapped_data.insert(kwargs["index"], obj)
                 if self.filter_function(obj) is False:
@@ -76,7 +88,7 @@ class ObservableListView(PyHtmlView):
                             if item.element_index_used is True:
                                 item.update()
 
-            if kwargs["action"] == "setitem":
+            elif kwargs["action"] == "setitem":
                 self._wrapped_data[kwargs["index"]].delete()  # unrender
                 obj = self._create_item(kwargs["new_item"])
                 self._wrapped_data[kwargs["index"]] = obj
@@ -84,7 +96,7 @@ class ObservableListView(PyHtmlView):
                     if self.insert_element(kwargs["index"], obj) is False:
                         self._wrapped_data.remove(obj)
 
-            if kwargs["action"] == "extend":
+            elif kwargs["action"] == "extend":
                 current_index = kwargs["index"]
                 for item in kwargs["items"]:
                     obj = self._create_item(item)
@@ -96,18 +108,38 @@ class ObservableListView(PyHtmlView):
                             current_index += 1
                 [item.update() for item in self._wrapped_data[current_index:] if item.element_index_used is True]
 
-            if kwargs["action"] in ["remove", "pop", "delitem"]:
+            elif kwargs["action"] in ["remove", "pop", "delitem"]:
                 self._wrapped_data[kwargs["index"]].delete()
                 del self._wrapped_data[kwargs["index"]]
                 [item.update() for item in self._wrapped_data[kwargs["index"]:] if item.element_index_used is True]
 
-            if kwargs["action"] == "sort":
+            elif kwargs["action"] == "sort":
+                recreate = False
+                sorting = {}
+                for index, item in enumerate(self.subject):
+                    if item != self._wrapped_data[index].subject:
+                        recreate = True
+                    sorting[id(item)] = index
+                if recreate is True:
+                    for data in self._wrapped_data:
+                        data.__newindex = sorting[id(data.subject)]
+                    self._wrapped_data.sort(key=lambda x:x.__newindex)
+                    self.update()
+
+            elif kwargs["action"] == "reverse":
+                self._wrapped_data.reverse()
                 self.update()
-            if kwargs["action"] == "reverse":
+
+            elif kwargs["action"] == "clear":
+                for data in self._wrapped_data:
+                    data.delete(remove_from_dom=False)
+                self._wrapped_data.clear()
                 self.update()
+
         finally:
             self._wrapped_data_lock.release()
 
     def get_element_index(self, element):
         element.element_index_used = True
         return self._wrapped_data.index(element)
+
