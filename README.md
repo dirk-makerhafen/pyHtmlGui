@@ -43,6 +43,7 @@ Example app screenshot:
 - [PyHtmlGui Methods](#pyhtmlgui-methods)
 - [Calling Python from Javascript](#calling-python-from-javascript)
 - [Calling Javascript from Python](#calling-javascript-from-python)
+- [PyHtmlView Nesting](#pyhtmlview-nesting)
 - [PyHtmlView methods](#pyhtmlview-methods)
 - [PyHtmlView render customisation](#pyhtmlview-render-customisation)
 - [Renderer details](#renderer-details)
