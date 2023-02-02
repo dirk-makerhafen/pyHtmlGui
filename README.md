@@ -195,7 +195,7 @@ They should fit many needs, but if you need more, you can simply extend or copy/
 
 PyHtmlGui native app capabilitys depend on [PyQt](https://pypi.org/project/PyQt5/) and
 [PyQtWebEngine](https://pypi.org/project/PyQtWebEngine/). On macOS optionally on [PyObjC](https://pyobjc.readthedocs.io/en/latest/), if you need to hide the dock icon.
-They are not installed by default with PyHtmlGui to keep your environment small in case you don't need the native app part.
+They are not installed by default with to keep your environment small in case you don't need the native app part.   
 Install these dependencys with 
 ```shell
 pip install PyQt5 PyQtWebEngine # optionally PyObjC
