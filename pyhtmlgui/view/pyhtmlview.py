@@ -5,6 +5,7 @@ import traceback
 import time
 import random
 import string
+import logging
 from markupsafe import Markup
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -102,7 +103,7 @@ class PyHtmlView:
             if html_content is not None:  # object might have died, in that case don't render
                 self.call_javascript("pyhtmlgui.replace_element", [self.uid, html_content], skip_results=True)
         else:
-            raise Exception("Can't update invisible components")
+            logging.warning("Can't update invisible components")
 
     def insert_element(self, index: int, element: PyHtmlView) -> bool:
         """
@@ -187,13 +188,9 @@ class PyHtmlView:
         :return:
         """
         if self.is_visible is False:
-            raise Exception("Can't javascript_call invisible components")
+            logging.warning("Can't javascript_call invisible components")
+            return
         return self._instance.call_javascript("pyhtmlgui.eval_script", [script, kwargs], skip_results=skip_results)
-
-    def eval_javascript_electron(self, script, skip_results=False, **kwargs):
-        if self.is_visible is False:
-            raise Exception("Can't javascript_call invisible components")
-        return self._instance.call_javascript("electron.eval_script", [script, kwargs], skip_results=skip_results)
 
     def _inner_html(self) -> typing.Union[str, None]:
         self._subject = self.subject  # receive hard reference to obj to it does not die on us while rendering

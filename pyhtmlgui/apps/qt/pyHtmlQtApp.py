@@ -18,23 +18,33 @@ if sys.platform == "darwin":
     NSApplicationActivationPolicyAccessory = 1
     NSApplicationActivationPolicyProhibited = 2
 
+
 class PyHtmlQtApp(QApplication):
     def __init__(self, icon_path= None ):
         super(PyHtmlQtApp, self).__init__([])
         self.setQuitOnLastWindowClosed(False)
-        self.icon_path = icon_path
-        self.icon = QIcon(self.icon_path)
-        self.setWindowIcon(self.icon)
+        self._icon_cache = {}
+        self._current_icon = None
+        self.set_icon(icon_path)
+
+        self.on_about_to_quit_event = Observable()
         self.on_activated_event = Observable()
+        self.aboutToQuit.connect(self.on_about_to_quit_event.notify_observers)
 
     def run(self):
         self.exec_()
 
-    def stop(self, *args):
+    def stop(self):
         self.quit()
 
+    def set_icon(self, path):
+        if path not in self._icon_cache:
+            self._icon_cache[path] = QIcon(path)
+        self._current_icon = self._icon_cache[path]
+        self.setWindowIcon(self._icon_cache[path])
+
     def event(self, e):
-        if e.type() == QEvent.ApplicationActivate:
+        if e.type() == QEvent.ApplicationActivate and e.spontaneous() is True:
             self.on_activated_event.notify_observers()
         return QApplication.event(self, e)
 
@@ -43,32 +53,44 @@ class PyHtmlQtApp(QApplication):
 
     def show_osx_dock(self, *args):
         AppKit.NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
-        self.setWindowIcon(self.icon)
+        self.setWindowIcon(self._current_icon)
 
 
 class GenericTray():
     def __init__(self, pyHtmlQtApp, icon_path):
-        self.pyHtmlQtApp = pyHtmlQtApp
-        self.icon_path = icon_path
-        self.icon = QIcon(self.icon_path)
-        self.tray = QSystemTrayIcon(self.pyHtmlQtApp)
-        self.tray.setIcon(self.icon)
-        self.tray.setVisible(True)
-        self.menu = QMenu()
-        self.menu._subitems = {}
-        self.tray.setContextMenu(self.menu)
+        self._pyHtmlQtApp = pyHtmlQtApp
+        self._tray = QSystemTrayIcon(self._pyHtmlQtApp)
+        self._icon_cache = {}
+        self.set_icon(icon_path)
+        self._tray.setVisible(True)
+
+        self._menu = QMenu()
+        self._menu._subitems = {}
+
+        self._tray.setContextMenu(self._menu)
+
         self.on_left_clicked = Observable()
         self.on_right_clicked = Observable()
-        self.tray.activated.connect(self._right_or_left_click)
+        self.on_closed_event = Observable()
+        self.on_show_event = Observable()
+
+        self._tray.activated.connect(self._right_or_left_click)
+        self._menu.aboutToHide.connect(self.on_closed_event.notify_observers) # https://doc.qt.io/qt-5/macos-issues.html#menu-actions
+        self._menu.aboutToShow.connect(self.on_show_event.notify_observers)
 
     def show(self):
-        self.tray.show()
+        self._tray.show()
 
     def hide(self):
-        self.tray.hide()
+        self._tray.hide()
 
     def close(self):
-        self.tray.hide()
+        self._tray.hide()
+
+    def set_icon(self, path):
+        if path not in self._icon_cache:
+            self._icon_cache[path] = QIcon(path)
+        self._tray.setIcon(self._icon_cache[path])
 
     def _right_or_left_click(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
@@ -91,7 +113,7 @@ class PyHtmlQtSimpleTray(GenericTray):
         submenu.addSeparator()
 
     def _get_submenu(self, names):
-        parent = self.menu
+        parent = self._menu
         for name in names:
             if name in parent._subitems:
                 parent = parent._subitems[name]
@@ -104,31 +126,31 @@ class PyHtmlQtSimpleTray(GenericTray):
 
 
 class PyHtmlQtTray(GenericTray):
-    def __init__(self, pyHtmlQtApp, url, size, icon_path):
+    def __init__(self, pyHtmlQtApp, url, size, icon_path, keep_connected_on_close = True):
         super().__init__(pyHtmlQtApp, icon_path)
-        self.webWidget = PyHtmlWebWidget(url, size=size)
-        self.webWidget.load_page()
-        self.trayAction = QWidgetAction(self.tray)
-        self.trayAction.setDefaultWidget(self.webWidget)
-        self.menu.addAction(self.trayAction)
+        self._webWidget = PyHtmlWebWidget(url, size=size)
+        self._trayAction = QWidgetAction(self._tray)
+        self._trayAction.setDefaultWidget(self._webWidget)
+        self._menu.addAction(self._trayAction)
+        if keep_connected_on_close is False:
+            self.on_show_event.attach_observer(self._webWidget.load_page)
+            self.on_closed_event.attach_observer(self._webWidget.unload_page)
+        else:
+            self._webWidget.load_page() # load page now if it should stay active in background
 
     def addJavascriptFunction(self, name, target):
-        self.webWidget.addJavascriptFunction(name, target)
+        self._webWidget.addJavascriptFunction(name, target)
 
     def removeJavascriptFunction(self, name):
-        self.webWidget.removeJavascriptFunction(name)
+        self._webWidget.removeJavascriptFunction(name)
 
     def runJavascript(self, javascript, callback=None):
-        self.webWidget.runJavascript(javascript, callback)
+        self._webWidget.runJavascript(javascript, callback)
 
 
 class PyHtmlQtWindow():
     def __init__(self, pyHtmlQtApp, url, size, title, icon_path=None, keep_connected_on_close = False, keep_connected_on_minimize = True):
-        self.pyHtmlQtApp = pyHtmlQtApp
-        self.url = url
-        self.size = size
-        self.title = title
-        self.icon_path = icon_path
+        self._pyHtmlQtApp = pyHtmlQtApp
 
         self.on_closed_event = Observable()
         self.on_show_event = Observable()
@@ -138,12 +160,15 @@ class PyHtmlQtWindow():
         self._qMainWindow = ExtendedQMainWindow(self) # you could also let this class directly subclass QMainWindow, but then PyHtmlQtWindow will expose a s*load of confusing qt functions from QMainWindow
         self._qMainWindow.resize(size[0], size[1])
         self._qMainWindow.setFocusPolicy(Qt.StrongFocus)
-        self._qMainWindow.setWindowTitle(self.title)
+        self._qMainWindow.setWindowTitle(title)
         self._qMainWindow.setCentralWidget(self._webWidget)
         self._webWidget.setParent(self._qMainWindow)
         self._menuBar = QMenuBar()
         self._menuBar._subitems = {} # qt also keep track of this, but this is easier for the addMenuButton and addMenuSeparator functions
         self._qMainWindow.setMenuBar(self._menuBar)
+
+        self._icon_cache = {}
+        self.set_icon(icon_path)
 
         if keep_connected_on_close is False:
             self.on_closed_event.attach_observer(self._webWidget.unload_page)
@@ -151,19 +176,27 @@ class PyHtmlQtWindow():
             self.on_minimized_event.attach_observer(self._webWidget.unload_page)
         self.on_show_event.attach_observer(self._webWidget.load_page)
 
-    def show(self, *args):
+    def show(self):
         self._qMainWindow.showNormal()
         self._qMainWindow.activateWindow()
         self._qMainWindow.raise_()
 
-    def hide(self, *args):
+    def hide(self):
         self._qMainWindow.hide()
 
-    def minimize(self, *args):
+    def minimize(self):
         self._qMainWindow.showMinimized()
 
-    def close(self, *args):
+    def close(self):
         self._qMainWindow.close()
+
+    def set_title(self, title):
+        self._qMainWindow.setWindowTitle(title)
+
+    def set_icon(self, path):
+        if path not in self._icon_cache:
+            self._icon_cache[path] = QIcon(path)
+        self._qMainWindow.setWindowIcon(self._icon_cache[path])
 
     def addMenuButton(self, name_or_names, target):
         if type(name_or_names) == str:
@@ -204,15 +237,14 @@ class PyHtmlWebWidget(QWidget):
         super().__init__()
         self.url  = url
         self._current_url = None
-        self.size = size
 
         self.web = QWebEngineView(parent=self)
-        if self.size is not None:
+        if size is not None:
             self.web.setFixedSize(size[0], size[1])
 
         self.profile = QWebEngineProfile(parent= self) # create a seperate profile for earch webengine, otherwise QWebEngineViews will load only the first loaded url in all view.
         self.web.setPage(QWebEnginePage(self.profile, self.web))
-        self.web.load(QUrl("about:blanc"))
+        self.web.load(QUrl("about:blank"))
 
         self.channel = QWebChannel(parent=self.web)
         self._functionHandler = JavascriptFunctionHandler()
@@ -226,15 +258,15 @@ class PyHtmlWebWidget(QWidget):
         self.layout.setRowStretch(0, 0)
         self.setLayout(self.layout)
 
-    def load_page(self, *args):
+    def load_page(self):
         if self._current_url != self.url:
             self._current_url = self.url
             self.web.load(QUrl(self.url))
 
-    def unload_page(self, *args):
+    def unload_page(self):
         if self._current_url != None:
             self._current_url = None
-            self.web.load(QUrl("about:blanc"))
+            self.web.load(QUrl("about:blank"))
 
     def addJavascriptFunction(self, name, target):
         self._functionHandler.add(name, target)

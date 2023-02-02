@@ -14,4 +14,7 @@ class Observable:
 
     def notify_observers(self, **kwargs) -> None:
         for target_function in self._observers.get_all():
-            target_function(self, **kwargs)
+            if target_function.__code__.co_argcount > 1:
+                target_function(self, **kwargs)
+            else:
+                target_function()
