@@ -10,6 +10,7 @@ import os
 import sys
 import inspect
 import json
+import logging
 import queue
 import importlib
 from typing import TYPE_CHECKING
@@ -128,14 +129,14 @@ class PyHtmlGuiInstance:
                     return_val = None
                 else:
                     return_val = None
-                    print("unknown python function", message['name'])
+                    logging.error("unknown python function '%s'" % message['name'])
 
             except Exception:
                 tb = traceback.format_exc()
                 msg = " Exception in: %s(%s)\n" % (function_name, ("%s" % args)[1:-1])
                 msg += " %s" % tb.replace("\n", "\n  ").strip()
                 self.call_javascript("pyhtmlgui.debug_msg", [msg],skip_results=True)
-                print(msg)
+                logging.error(msg)
                 return_val = None
 
             if not ("skip_results" in message and message["skip_results"] is True):
@@ -149,7 +150,7 @@ class PyHtmlGuiInstance:
                 js_call_result = websocket_connection.javascript_call_result_objects[call_id]
                 js_call_result.result_received(websocket_connection, message)
         else:
-            print('Invalid message received: ', message)
+            logging.error('Invalid message received: %s' % message)
 
     def _create_function_reference(self, function: typing.Union[typing.Callable, jinja2.runtime.Undefined]) -> str:
         if type(function) == jinja2.runtime.Undefined:

@@ -2,7 +2,7 @@ import shlex, os, sys
 import subprocess
 import tempfile
 import threading
-
+import logging
 from pyhtmlgui import Observable
 
 
@@ -51,7 +51,7 @@ class PyHtmlChromeApp():
             cmd.append("--disable-pinch")
             cmd.append("--user-data-dir=\"%s\"" % tmpdirname)
             cmd.append("--app=%s" % self.url)
-            print(cmd)
+            logging.info("Starting chrome instance with %s" % cmd)
             self._subprocess = subprocess.Popen(shlex.split(shlex.join(cmd)), shell=False)
             self.on_show_event.notify_observers()
             self._subprocess.wait()

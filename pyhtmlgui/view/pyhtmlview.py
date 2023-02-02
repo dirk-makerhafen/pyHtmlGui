@@ -50,7 +50,7 @@ class PyHtmlView:
             try:
                 self.add_observable(self.subject)
             except Exception:  # detach all will thow an exception if the event can not be attached
-                print("object type '%s' can not be observed" % type(subject))
+                logging.warning("object type '%s' can not be observed" % type(subject))
 
     @property
     def subject(self):
@@ -101,7 +101,7 @@ class PyHtmlView:
         if self.is_visible is True:
             html_content = self.render()
             if html_content is not None:  # object might have died, in that case don't render
-                self.call_javascript("pyhtmlgui.replace_element", [self.uid, html_content], skip_results=True)
+                self._instance.call_javascript("pyhtmlgui.replace_element", [self.uid, html_content], skip_results=True)
         else:
             logging.warning("Can't update invisible components")
 
@@ -112,7 +112,7 @@ class PyHtmlView:
         """
         html_content = element.render()
         if html_content is not None:  # object might have died, in that case don't render
-            self.call_javascript("pyhtmlgui.insert_element", [self.uid, index, html_content], skip_results=True)
+            self._instance.call_javascript("pyhtmlgui.insert_element", [self.uid, index, html_content], skip_results=True)
             return True
         return False
 
@@ -121,7 +121,7 @@ class PyHtmlView:
         Move existing element to position index.
         This is used for example in ObservableDictView and ObservableListView to reorder elements without rerendering.
         """
-        self.call_javascript("pyhtmlgui.move_element", [self.uid, index, element.uid], skip_results=True)
+        self._instance.call_javascript("pyhtmlgui.move_element", [self.uid, index, element.uid], skip_results=True)
         return True
 
     def delete(self, remove_from_dom: bool = True) -> None:
@@ -132,7 +132,7 @@ class PyHtmlView:
                                 because parent removes itself + all childen from dom automatically
         """
         if self.is_visible is True and remove_from_dom is True:
-            self.call_javascript("pyhtmlgui.remove_element", [self.uid], skip_results=True)
+            self._instance.call_javascript("pyhtmlgui.remove_element", [self.uid], skip_results=True)
         self.set_visible(False)
         try:
             self.parent._remove_child(self)
@@ -210,11 +210,10 @@ class PyHtmlView:
             html = self._instance.get_template(self).render({"pyview": self})
         except Exception:
             tb = traceback.format_exc()
-            msg = " Exception while rendering Template: %s\n" % self.__class__.__name__
-            msg += " %s" % tb.replace("\n", "\n  ").strip()
-            self.call_javascript("pyhtmlgui.debug_msg", [msg])
-            html = msg
-            print(msg)
+            html = " Exception while rendering Template: %s\n" % self.__class__.__name__
+            html += " %s" % tb.replace("\n", "\n  ").strip()
+            self._instance.call_javascript("pyhtmlgui.debug_msg", [html])
+            logging.error(html)
 
         # set children that have not been rendered in last pass to invisible
         for child in self._children:

@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-import random
-import shutil
+import logging
 import sys
 import threading
 import time
@@ -255,8 +254,7 @@ class PyHtmlGui:
                         try:
                             instance.update()
                         except Exception:
-                            print("Failed to Update")
-                            print(traceback.format_exc())
+                            logging.error("Failed to update, %s" % traceback.format_exc())
 
 
 class WebsocketServerThread(threading.Thread):
