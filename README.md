@@ -193,6 +193,14 @@ However, at some point you might want to create a native app, maybe a tray icon 
 To save you from writing ~350 lines of annoying Qt code to set this all up, pyHmlGui provides some convience classes.  
 They should fit many needs, but if you need more, you can simply extend or copy/paste them as a great starting point.
 
+PyHtmlGui native app capabilitys depend on [PyQt](https://pypi.org/project/PyQt5/) and
+[PyQtWebEngine](https://pypi.org/project/PyQtWebEngine/). On macOS optionally on [PyObjC](https://pyobjc.readthedocs.io/en/latest/), if you need to hide the dock icon.
+They are not installed by default with PyHtmlGui to keep your environment small in case you don't need the native app part.
+Install these dependencys with 
+```shell
+pip install PyQt5 PyQtWebEngine # optionally PyObjC
+```
+
 All examples below and some more can be found in [examples/launchers/](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/launchers/) . 
 
 

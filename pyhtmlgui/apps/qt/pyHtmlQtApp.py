@@ -1,6 +1,6 @@
 import json, sys
 import traceback
-
+import logging
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
@@ -12,8 +12,12 @@ from pyhtmlgui import Observable
 QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)  # enable highdpi scaling
 QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)  # use highdpi icons
 
+AppKit = None
 if sys.platform == "darwin":
-    import AppKit
+    try:
+        import AppKit
+    except:
+        logging.warning("AppKit not available, hiding dock icon will not be available. Run 'pip install pyobjc' to install ")
     NSApplicationActivationPolicyRegular = 0
     NSApplicationActivationPolicyAccessory = 1
     NSApplicationActivationPolicyProhibited = 2
@@ -48,12 +52,18 @@ class PyHtmlQtApp(QApplication):
             self.on_activated_event.notify_observers()
         return QApplication.event(self, e)
 
-    def hide_osx_dock(self, *args):
-        AppKit.NSApp.setActivationPolicy_(NSApplicationActivationPolicyProhibited)
+    def hide_osx_dock(self):
+        if AppKit is not None:
+            AppKit.NSApp.setActivationPolicy_(NSApplicationActivationPolicyProhibited)
+        else:
+            logging.warning("AppKit not available, hide_osx_dock() is not available")
 
-    def show_osx_dock(self, *args):
-        AppKit.NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
-        self.setWindowIcon(self._current_icon)
+    def show_osx_dock(self):
+        if AppKit is not None:
+            AppKit.NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+            self.setWindowIcon(self._current_icon)
+        else:
+            logging.warning("AppKit not available, show_osx_dock() is not available")
 
 
 class GenericTray():
