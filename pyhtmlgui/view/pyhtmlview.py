@@ -1,8 +1,9 @@
 from __future__ import annotations
+
+import time
 import typing
 import weakref
 import traceback
-import time
 import random
 import string
 import logging
@@ -22,11 +23,7 @@ class PyHtmlView:
     DOM_ELEMENT_CLASS = ""
     DOM_ELEMENT_EXTRAS = ""
 
-    def __init__(self,
-                 subject,
-                 parent:  typing.Union[PyHtmlView, PyHtmlGuiInstance],
-                 **kwargs):
-
+    def __init__(self, subject, parent:  typing.Union[PyHtmlView, PyHtmlGuiInstance], **kwargs):
         self.uid = "pv%s" % ("".join(random.choices(CHARACTERS, k=16)))
         self.is_visible = False
 
@@ -34,22 +31,17 @@ class PyHtmlView:
         self._subject_wref = weakref.ref(subject, self._on_subject_died)
         self._parent_wref = weakref.ref(parent, None)
 
-        self._subject = None  # this is replace for a short time on render by the actual resolved object
-        self._children = weakref.WeakSet()
+        self._instance = parent if type(parent) == PyHtmlGuiInstance else parent._instance
+        self._was_rendered = False
+        self._last_rendered = 0
         self._observables = []
-        self.__last_rendered = None  # timestamp of last rendering, for debug only
-        self.__was_rendered = False
+        self._children = weakref.WeakSet()
+        self._subject = None  # this is replace for a short time on render by the actual resolved object
 
-        if type(parent) == PyHtmlGuiInstance:
-            self._instance = parent
-        else:
-            self._instance = parent._instance
-
-        # by default we observe the subject
-        if self._on_subject_updated is not None:
+        if self._on_subject_updated is not None: # by default we observe the subject
             try:
                 self.add_observable(self.subject)
-            except Exception:  # detach all will thow an exception if the event can not be attached
+            except Exception:
                 logging.warning("object type '%s' can not be observed" % type(subject))
 
     @property
@@ -65,7 +57,6 @@ class PyHtmlView:
     def _on_subject_updated(self, source, **kwargs) -> None:
         self.update()
 
-    # noinspection PyUnusedLocal
     def _on_subject_died(self, wr) -> None:
         self.delete()
 
@@ -74,10 +65,40 @@ class PyHtmlView:
             Return object rendered to html string. This function should be called from inside the jinja templates.
             Direct usage is not needed, Returns html string rendered from template
         """
-        html = self._inner_html()
+        self._subject = self.subject  # receive hard reference to obj so it does not die on us while rendering
+        if self._subject is None:  # Observed object died before render
+            return None
+
+        for child in self._children:
+            try:
+                child._was_rendered = False
+            except:
+                pass
+
+        if self.is_visible is False:
+            self.set_visible(True)
+
+        try:
+            html = self._instance.get_template(self).render({"pyview": self})
+        except Exception:
+            html = " Exception while rendering Template: %s\n %s" % (self.__class__.__name__, traceback.format_exc().replace("\n", "\n  ").strip())
+            self._instance.call_javascript("pyhtmlgui.debug_msg", [html])
+            logging.error(html)
+
+        for child in self._children:
+            try:
+                if child._was_rendered is False and child.is_visible is True:
+                    child.set_visible(False)
+            except Exception as e:
+                print(e)
+                pass
+
+        self._was_rendered = True
+        self._last_rendered = time.time()
+        self._subject = None  # remove hard reference to subject, it may die now
+
         if html is None:
             return None
-        self.__last_rendered = time.time()
         if self.DOM_ELEMENT is None:
             return Markup(html)
         else:
@@ -85,7 +106,6 @@ class PyHtmlView:
             if cls == "":   cls = self.__class__.__name__
             if cls is None: cls = ""
             if cls != "":   cls = 'class="%s"' % cls
-
             return Markup('<%(el)s %(cls)s id="%(uid)s" %(ex)s>%(html)s</%(el)s>' % {
                 "el"  : self.DOM_ELEMENT,
                 "cls" : cls,
@@ -155,9 +175,9 @@ class PyHtmlView:
                     observable().detach_observer(target())  # resolve weak references
                 except Exception:
                     pass
-            for child in self._children:
+            for i in range(len(self._children)):
                 try:
-                    child.set_visible(False)
+                    self._children[i].set_visible(False)
                 except:
                     pass
         else:
@@ -176,6 +196,9 @@ class PyHtmlView:
         :param skip_results: Don't receive results, give some slight performance inprovement because
                              we don't wait for results
         """
+        if self.is_visible is False:
+            logging.warning("Can't javascript_call invisible components")
+            return
         return self._instance.call_javascript(js_function_name, args, skip_results)
 
     def eval_javascript(self, script, skip_results=False, **kwargs):
@@ -191,41 +214,6 @@ class PyHtmlView:
             logging.warning("Can't javascript_call invisible components")
             return
         return self._instance.call_javascript("pyhtmlgui.eval_script", [script, kwargs], skip_results=skip_results)
-
-    def _inner_html(self) -> typing.Union[str, None]:
-        self._subject = self.subject  # receive hard reference to obj to it does not die on us while rendering
-        if self._subject is None:  # Observed object died before render
-            return None
-
-        for child in self._children:
-            try:
-                child.__was_rendered = False
-            except:
-                pass
-
-        if self.is_visible is False:
-            self.set_visible(True)
-
-        try:
-            html = self._instance.get_template(self).render({"pyview": self})
-        except Exception:
-            tb = traceback.format_exc()
-            html = " Exception while rendering Template: %s\n" % self.__class__.__name__
-            html += " %s" % tb.replace("\n", "\n  ").strip()
-            self._instance.call_javascript("pyhtmlgui.debug_msg", [html])
-            logging.error(html)
-
-        # set children that have not been rendered in last pass to invisible
-        for child in self._children:
-            try:
-                if child.__was_rendered is False and child.is_visible is True:
-                    child.set_visible(False)
-            except:
-                pass
-
-        self.__was_rendered = True
-        self._subject = None  # remove hard reference to subject, it may die now
-        return html
 
     def _add_child(self, child: PyHtmlView) -> None:
         self._children.add(child)
@@ -262,3 +250,12 @@ class PyHtmlView:
                     to_remove.append(e)
         for e in to_remove:
             self._observables.remove(e)
+
+    def set_autoupdate_interval(self, interval):
+        if interval is not None and interval < 1:
+            raise Exception("Interval must be at least 1 second")
+        self._autoupdate_interval = interval
+        if self._autoupdate_interval is not None:
+            self._instance._add_polling_child(self)
+        else:
+            self._instance._remove_polling_child(self)

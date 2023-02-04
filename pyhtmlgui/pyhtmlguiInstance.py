@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 import typing
 import jinja2
 import weakref
@@ -19,10 +20,10 @@ if TYPE_CHECKING:
     from pyhtmlgui.view.pyhtmlview import PyHtmlView
 from .lib import WeakFunctionReferences
 
-
 class PyHtmlGuiInstance:
-    def __init__(self, parent: PyHtmlGui, app_instance: object, view_class: typing.Type[PyHtmlView]):
+    def __init__(self, parent: PyHtmlGui, app_instance: object, view_class: typing.Type[PyHtmlView], _on_dom_ready_callback):
         self._parent = parent
+        self._on_dom_ready_callback = _on_dom_ready_callback
         self._websocket_connections = []
         self._children = weakref.WeakSet()
         self._template_env = jinja2.Environment(loader=parent.template_loader, autoescape=jinja2.select_autoescape())
@@ -30,6 +31,9 @@ class PyHtmlGuiInstance:
         self._call_number = 0
         self._function_references = WeakFunctionReferences()
         self._template_env.globals['_create_py_function_reference'] = self._create_function_reference
+        self.pending_js_results = {}
+        self._polling_children = {}
+        self._polling_thread = None
         self._view = view_class(app_instance, self)
 
     @property
@@ -45,9 +49,12 @@ class PyHtmlGuiInstance:
         """
         if visible is False:
             for child in self._children:
-                if child.is_visible is True:
-                    child.set_visible(False)
-        if visible is True:
+                try:
+                    if child.is_visible is True:
+                        child.set_visible(False)
+                except Exception as e:
+                    pass
+        else:
             self.update()
 
     def call_javascript(self, js_function_name: str, args: list = None, skip_results: bool = False):
@@ -57,100 +64,36 @@ class PyHtmlGuiInstance:
         :param args: Arguments for js function
         :param skip_results: Don't receive results, give some slight performance improvement if we don't wait for result
         """
-        self._call_number += 1
-        to_delete = self._call_number - 100
-        # clean old function references, this is needed to results don't stay around if you don't
-        for websocket_connection in self._websocket_connections:
-            if to_delete in websocket_connection.javascript_call_result_objects:
-                del websocket_connection.javascript_call_result_objects[to_delete]
-            if to_delete in websocket_connection.javascript_call_result_queues:
-                del websocket_connection.javascript_call_result_queues[to_delete]
 
-        if args is None:
-            args = []
-        javascript_call_object = {'call': self._call_number, 'name': js_function_name, 'args': args}
+        self._call_number  += 1
+        call_id = self._call_number
 
-        if skip_results is True:
-            javascript_call_result = None
-            javascript_call_object["skip_results"] = True
+        try:  #remove old function references, this may not be needed, because it should be removed on return from python, but in case of error it may stay forever otherwise
+            self.pending_js_results[call_id - 1000].removed_by_parent() # will call outstanding callbacks, collecting as many results as have been received at this point
+            del self.pending_js_results[call_id - 1000] # no more that 1000 calls should stay around
+        except:
+            pass
+
+        javascript_call_object = {'call': call_id, 'name': js_function_name, 'args': args if args is not None else []}
+        javascript_call_result = None
+        if skip_results is False:
+            javascript_call_result = JavascriptCallResult(self, call_id, len(self._websocket_connections) )
+            self.pending_js_results[call_id] = javascript_call_result
         else:
-            javascript_call_result = JavascriptCallResult(self._call_number)
+            javascript_call_object["skip_results"] = True
 
         data = json.dumps(javascript_call_object, default=lambda o: None)
-        for websocket_connection in self._websocket_connections:
-            if skip_results is False:
-                websocket_connection.javascript_call_result_objects[self._call_number] = javascript_call_result
-                javascript_call_result.add_call(websocket_connection)
+        for websocket_connection in [w for w in self._websocket_connections]:
             websocket_connection.send(data)
         return javascript_call_result
 
     def process(self, ws) -> None:
-        websocket_connection = WebsocketConnection(ws, self._websocket_process_message)
+        websocket_connection = WebsocketConnection(ws, self)
         self._websocket_connections.append(websocket_connection)
-        websocket_connection.process()
+        websocket_connection.receive_loop()
         self._websocket_connections.remove(websocket_connection)
         if len(self._websocket_connections) == 0:
             self.set_visible(False)
-
-    def _websocket_process_message(self, message, websocket_connection):
-        if 'call' in message:
-            function_name = "Function not found"
-            args = "  "
-            try:
-                if message['name'] == "call_python_function_with_args":
-                    functioncall_id = message['args'][0]
-                    args = message['args'][1]
-                    function = self._function_references.get(functioncall_id)
-                    # noinspection PyUnresolvedReferences
-                    function_name = "%s.%s" % (function.__self__.__class__.__name__, function.__name__)
-                    return_val = function(*args)
-
-                elif message['name'] == "call_python_function":
-                    functioncall_id = message['args'][0]
-                    function = self._function_references.get(functioncall_id)
-                    # noinspection PyUnresolvedReferences
-                    function_name = "%s.%s" % (function.__self__.__class__.__name__, function.__name__)
-                    return_val = function()
-
-                elif message['name'] == "python_bridge":
-                    function_name = "%s.python_bridge" % self.__class__.__name__
-                    return_val = None
-                    if hasattr(self._view, "on_electron_message"):
-                        self._view.on_electron_message(message)
-
-                elif message['name'] == "frontend_ready":
-                    function_name = "%s.frontend_ready" % self.__class__.__name__
-                    self.update()
-                    return_val = None
-                    if hasattr(self._view, "on_frontend_ready"):
-                        self._view.on_frontend_ready(len(self._websocket_connections))
-
-                elif message['name'] == "ping":
-                    return_val = None
-                else:
-                    return_val = None
-                    logging.error("unknown python function '%s'" % message['name'])
-
-            except Exception:
-                tb = traceback.format_exc()
-                msg = " Exception in: %s(%s)\n" % (function_name, ("%s" % args)[1:-1])
-                msg += " %s" % tb.replace("\n", "\n  ").strip()
-                self.call_javascript("pyhtmlgui.debug_msg", [msg],skip_results=True)
-                logging.error(msg)
-                return_val = None
-
-            if not ("skip_results" in message and message["skip_results"] is True):
-                data = json.dumps({'return': message['call'], 'value': return_val}, default=lambda o: None)
-                websocket_connection.send(data)
-
-        elif 'return' in message:
-            call_id = message['return']
-            del message['return']  # remove internal id from result before passing to next level
-            if call_id in websocket_connection.javascript_call_result_objects:
-                js_call_result = websocket_connection.javascript_call_result_objects[call_id]
-                js_call_result.result_received(websocket_connection, message)
-        else:
-            logging.error('Invalid message received: %s' % message)
 
     def _create_function_reference(self, function: typing.Union[typing.Callable, jinja2.runtime.Undefined]) -> str:
         if type(function) == jinja2.runtime.Undefined:
@@ -270,19 +213,53 @@ class PyHtmlGuiInstance:
     def _remove_child(self, child: PyHtmlView) -> None:
         self._children.remove(child)
 
+    def _add_polling_child(self, child: PyHtmlView) -> None:
+        if self._polling_thread == None:
+            self._polling_thread = threading.Thread(target=self._poll_loop, daemon=True)
+            self._polling_thread.start()
+        try:
+            if child in self._polling_children[child._autoupdate_interval]:
+                return
+        except:
+            pass
+        self._remove_polling_child(child) # in case interval has changed and child already exists in some queue
+        if child._autoupdate_interval not in self._polling_children:
+            self._polling_children[child._autoupdate_interval] = weakref.WeakSet()
+        self._polling_children[child._autoupdate_interval].add(child)
+
+    def _remove_polling_child(self, child):
+        for key in self._polling_children.keys():
+            try:
+                self._polling_children[key].remove(child)
+            except:
+                pass
+            if len(self._polling_children[key]) == 0:
+                del self._polling_children[key]
+
+    def _poll_loop(self):
+        i = 0
+        while True:
+            now = time.time()
+            for key in self._polling_children.keys():
+                interval = int(key)
+                if i % interval == 0:
+                    for child in self._polling_children[key]:
+                        if child.is_visible and child._last_rendered + interval/2.0 < now:
+                            child.update()
+            i += 1
+            time.sleep(1)
+
 
 class WebsocketConnection:
-    def __init__(self, ws, process_msg_callback):
+    def __init__(self, ws, pyHtmlGuiInstance):
         self.ws = ws
-        self.process_msg_callback = process_msg_callback
-        self.javascript_call_result_queues = {}
-        self.javascript_call_result_objects = {}
+        self.parent_instance = pyHtmlGuiInstance
         self.active = True
         self.send_queue = queue.Queue(maxsize=1000)
         self._send_t = threading.Thread(target=self._send_loop, daemon=True)
         self._send_t.start()
 
-    def process(self):
+    def receive_loop(self):
         while self.active is True:
             try:
                 msg = self.ws.receive()
@@ -291,7 +268,7 @@ class WebsocketConnection:
             if msg is None:
                 break
             try:
-                self.process_msg_callback(json.loads(msg), self)
+                self._process_received_message(json.loads(msg))
             except:
                 continue
         try:
@@ -301,6 +278,64 @@ class WebsocketConnection:
         self.active = False
         if self.send_queue is not None:
             self.send_queue.put(None)
+
+    def send(self, message):
+        if self.send_queue is not None:
+            self.send_queue.put(message)
+
+    def _process_received_message(self, message):
+        if 'call' in message:
+            function_name = "Function not found"
+            args = "  "
+            return_val = None
+            try:
+                if message['name'] == "call_python_function_with_args":
+                    functioncall_id = message['args'][0]
+                    args = message['args'][1]
+                    function = self.parent_instance._function_references.get(functioncall_id)
+                    # noinspection PyUnresolvedReferences
+                    function_name = "%s.%s" % (function.__self__.__class__.__name__, function.__name__)
+                    return_val = function(*args)
+
+                elif message['name'] == "call_python_function":
+                    functioncall_id = message['args'][0]
+                    function = self.parent_instance._function_references.get(functioncall_id)
+                    # noinspection PyUnresolvedReferences
+                    function_name = "%s.%s" % (function.__self__.__class__.__name__, function.__name__)
+                    return_val = function()
+
+                elif message['name'] == "frontend_ready":
+                    function_name = "frontend_ready"
+                    self.parent_instance.update()
+                    self.parent_instance._on_dom_ready_callback()
+
+                elif message['name'] == "ping":
+                    pass
+
+                else:
+                    logging.error("unknown python function '%s'" % message['name'])
+
+            except Exception:
+                tb = traceback.format_exc()
+                msg = " Exception in: %s(%s)\n" % (function_name, ("%s" % args)[1:-1])
+                msg += " %s" % tb.replace("\n", "\n  ").strip()
+                self.parent_instance.call_javascript("pyhtmlgui.debug_msg", [msg], skip_results=True)
+                logging.error(msg)
+                return_val = None
+
+            if not ("skip_results" in message and message["skip_results"] is True):
+                data = json.dumps({'return': message['call'], 'value': return_val}, default=lambda o: None)
+                self.send(data)
+
+        elif 'return' in message:
+            call_id = message['return']
+            del message['return']  # remove internal id from result before passing to next level
+            try:
+                self.parent_instance.pending_js_results[call_id].result_received(message)
+            except:
+                pass
+        else:
+            logging.error('Invalid message received: %s' % message)
 
     def _send_loop(self):
         while self.active is True:
@@ -318,47 +353,50 @@ class WebsocketConnection:
         self.active = False
         self.send_queue = None
 
-    def send(self, message):
-        if self.send_queue is not None:
-            self.send_queue.put(message)
-
 
 class JavascriptCallResult:
-    def __init__(self, call_id):
+    def __init__(self, pyHtmlGuiInstance, call_id, nr_of_expected_results):
+        self.instance = pyHtmlGuiInstance
         self.call_id = call_id
-        self.websocket_connections = weakref.WeakSet()
-        self._results_missing = 0
+        self._results_expected = nr_of_expected_results
+        self.results = []
         self._callback = None
+        self._all_results_received_event = threading.Event()
 
-    def add_call(self, websocket_connection):
-        websocket_connection.javascript_call_result_queues[self.call_id] = queue.Queue()
-        self.websocket_connections.add(websocket_connection)
-        self._results_missing += 1
+    def result_received(self, result):
+        self.results.append(result)
+        if len(self.results) == self._results_expected:
+            if self._callback is not None:
+                self._callback(self.results)
+            self._all_results_received_event.set()
+            self._clear_parent_reference()
 
-    def result_received(self, websocket_connection, result):
-        websocket_connection.javascript_call_result_queues[self.call_id].put(result)
-        self._results_missing -= 1
-        if self._results_missing == 0 and self._callback is not None:
-            self._callback(self._collect_results())
-
-    def _collect_results(self):
-        results = []
-        for websocket_connection in self.websocket_connections:
-            results.append(websocket_connection.javascript_call_result_queues[self.call_id].get())
-            del websocket_connection.javascript_call_result_queues[self.call_id]
-            del websocket_connection.javascript_call_result_objects[self.call_id]
-        errors = [result["error"] for result in results if "error" in result]
+    def _get_results_blocking(self):
+        self._all_results_received_event.wait(60)
+        errors = [result["error"] for result in self.results if "error" in result]
         if len(errors) > 0:
-            msg = "%s of %s connected frontends returned an error\n" % (len(errors), len(results))
+            msg = "%s of %s connected frontends returned an error\n" % (len(errors), len(self.results))
             msg += "\n".join(errors)
             raise Exception(msg)
-        return [result["value"] for result in results]
+        return [result["value"] for result in self.results]
+
+    def removed_by_parent(self):
+        self._all_results_received_event.set()
+
+    def _clear_parent_reference(self):
+        try:
+            del self.instance.pending_js_results[self.call_id]  # remove pending reference
+        except:
+            pass
 
     def __call__(self, callback: typing.Union[typing.Callable, None]  = None):
         if callback is None:
-            return self._collect_results()
+            r = self._get_results_blocking()
+            self._clear_parent_reference()
+            return r
         else:
-            if self._results_missing == 0:
-                callback(self._collect_results())
+            if self._all_results_received_event.is_set() is True:
+                callback(self._get_results_blocking())
+                self._clear_parent_reference()
             else:
                 self._callback = callback

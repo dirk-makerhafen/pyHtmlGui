@@ -18,7 +18,6 @@ from .pyhtmlguiInstance import PyHtmlGuiInstance
 from .view import PyHtmlView
 import flask, flask_sock
 
-
 class PyHtmlGui:
     def __init__(self,
                  app_instance     : object,
@@ -31,7 +30,7 @@ class PyHtmlGui:
                  size             : tuple[int, int] = None,
                  position         : tuple[int, int] = None,
                  listen_host      : str             = "127.0.0.1",
-                 listen_port      : int             = 8000,
+                 listen_port      : int             = 0,
                  shared_secret    : str             = None,
                  auto_reload      : bool            = False,
                  single_instance  : bool            = True
@@ -50,7 +49,7 @@ class PyHtmlGui:
                                         arguments passed: "nr of view instances", "nr of websocket connections"
         :param position: window position
         :param listen_host:
-        :param listen_port:
+        :param listen_port: Default listen port, of 0 for automatic
         :param shared_secret: use "" to automatically generate a uid internally, None to disable token
         :param auto_reload: for development, monitor files and reload while app is running
         :param single_instance: create only one instance and share it between all connected websockets.
@@ -87,10 +86,10 @@ class PyHtmlGui:
 
         if getattr(sys, 'frozen', False) is True:
             # noinspection PyUnresolvedReferences,PyProtectedMember
-            self._internal_template_dir = os.path.join(sys._MEIPASS, "pyhtmlgui", "assets", "templates")
+            self._internal_template_dir = os.path.join(sys._MEIPASS, "pyhtmlgui", "templates")
             self.auto_reload = False
         else:
-            self._internal_template_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets", "templates")
+            self._internal_template_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
         if self.template_dir is not None and not os.path.exists(self.template_dir):
             raise Exception("Template dir '%s' not found" % self.template_dir)
         if self.static_dir is not None and not os.path.exists(self.static_dir):
@@ -121,13 +120,13 @@ class PyHtmlGui:
 
     def start(self, show_frontend: bool = False, block: bool = True) -> None:
         self._server.start()
+        print("PyHtmlGui server started on http://%s:%s" % (self.listen_host, self._server.get_port()))
         if show_frontend is True:
             self.show()
         if block is True:
             self.join()
 
     def stop(self) -> None:
-        # noinspection PyBroadException
         try:
             self._server.shutdown()
         except Exception:
@@ -187,23 +186,15 @@ class PyHtmlGui:
         if self.static_dir is None:
             return flask.abort(404)
         response = flask.helpers.send_from_directory( self.static_dir, path, max_age=36000)
-
-        if path.endswith(".js"):
+        filetype = path.split(".")[-1].lower()
+        if filetype == "js":
             response.headers["Content-Type"] =  "application/javascript"
-        elif path.endswith(".html"):
-            response.headers["Content-Type"] =  "text/html"
-        elif path.endswith(".css"):
-            response.headers["Content-Type"] =  "text/css"
-        elif path.endswith(".jpg") or path.endswith(".jpeg"):
+        elif filetype in ["html", "css"]:
+            response.headers["Content-Type"] =  "text/%s" % filetype
+        elif filetype in ["jpeg", "jpg"]:
             response.headers["Content-Type"] =  "image/jpeg"
-        elif path.endswith(".png"):
-            response.headers["Content-Type"] =  "image/png"
-        elif path.endswith(".gif"):
-            response.headers["Content-Type"] =  "image/gif"
-        elif path.endswith(".webp"):
-            response.headers["Content-Type"] =  "image/webp"
-        elif path.endswith(".svg"):
-            response.headers["Content-Type"] =  "image/svg"
+        elif filetype in ["png", "gif", "webp", "svg"]:
+            response.headers["Content-Type"] =  "image/%s" % filetype
 
         response.headers["Cache-Control"] = "public, max-age=36000"
         return response
@@ -264,6 +255,9 @@ class WebsocketServerThread(threading.Thread):
         self.ctx = app.app_context()
         self.ctx.push()
 
+    def get_port(self):
+        return self.server.server_port
+
     def run(self):
         self.server.serve_forever()
 
@@ -291,27 +285,27 @@ class PyHtmlGuiEndpoint:
 
     def process_websocket(self, ws):
         if len(self._gui_instances) == 0 or self.single_instance is False:
-            instance = PyHtmlGuiInstance(self.parent, self.app_instance, self.view_class)
+            instance = PyHtmlGuiInstance(self.parent, self.app_instance, self.view_class, self._on_dom_ready_callback)
             self._gui_instances.append(instance)
         else:
             instance = self._gui_instances[0]
-
-        if self.on_view_connected_callback is not None:
-            self.on_view_connected_callback(len(self._gui_instances), sum([i.connections_count for i in self._gui_instances]) + 1) # +1 because connection gets only added in loop later
 
         instance.process(ws)  # loop while connected
 
         # release/remove Instance
         if instance.connections_count == 0:
             self._gui_instances.remove(instance)
-        if hasattr(instance._view, "on_frontend_disconnected"):
-            instance._view.on_frontend_disconnected(len(instance._websocket_connections))
         if self.on_view_disconnected_callback is not None:
             self.on_view_disconnected_callback(len(self._gui_instances), sum([i.connections_count for i in self._gui_instances]))
 
+    def _on_dom_ready_callback(self):
+        if self.on_view_connected_callback is not None:
+            self.on_view_connected_callback(len(self._gui_instances), sum([i.connections_count for i in self._gui_instances]))
+
     def get_url(self):
         target_host = "127.0.0.1" if self.parent.listen_host == "0.0.0.0" else self.parent.listen_host
-        url = "http://%s:%s/%s" % (target_host, self.parent.listen_port, self.name)
+        port = self.parent.listen_port if self.parent.listen_port != 0 else self.parent._server.get_port()
+        url = "http://%s:%s/%s" % (target_host, port, self.name)
         if self.parent.shared_secret is not None:
             url = "%s?token=%s" % (url, self.parent.shared_secret)
         return url

@@ -6,36 +6,31 @@
             let csrf_token = "{{ csrf_token }}";
             let start_size = {{ start_size }};
             let start_position = {{ start_position }};
-            let electron_ipc = null;
             let connected = false;
             let pyhtmlqtChannel = null;
-            let pyhtmlapp = new Proxy(new Object(), {
-                get(target, name) {
-                    return function(...args) {
-                        return new Promise((resolve, reject) => {
-                            args_str = JSON.stringify(args, (k, v) => v === undefined ? null : v);
-                            pyhtmlqtChannel.call(name, args_str, (result) => {
-                                var r = JSON.parse(result);
-                                if(r.result !== undefined){
-                                    resolve(r);
-                                }else{
-                                    console.error(r.exception)
-                                }
-                            });
-                        });
-                    }
-                }
-            });
-            new QWebChannel(qt.webChannelTransport, function (channel) {
-                pyhtmlqtChannel = channel.objects.pyhtmlapp;
-            });
+            let pyhtmlapp = null;
 
-            if(typeof require !== "undefined"){
-                window.nodeRequire = require;
-                delete window.require;
-                delete window.exports;
-                delete window.module;
-                electron_ipc = nodeRequire('electron').ipcRenderer;
+            if(typeof QWebChannel !== "undefined"){
+                pyhtmlapp = new Proxy(new Object(), {
+                    get(target, name) {
+                        return function(...args) {
+                            return new Promise((resolve, reject) => {
+                                args_str = JSON.stringify(args, (k, v) => v === undefined ? null : v);
+                                pyhtmlqtChannel.call(name, args_str, (result) => {
+                                    var r = JSON.parse(result);
+                                    if(r.result !== undefined){
+                                        resolve(r);
+                                    }else{
+                                        console.error(r.exception)
+                                    }
+                                });
+                            });
+                        }
+                    }
+                });
+                new QWebChannel(qt.webChannelTransport, function (channel) {
+                    pyhtmlqtChannel = channel.objects.pyhtmlapp;
+                });
             }
 
             pyhtmlgui = {
@@ -64,14 +59,8 @@
 
                     document.addEventListener("DOMContentLoaded", function(event) {
                         pyhtmlgui._connect();
+                        pyhtmlgui._ping()
                     });
-                    if(electron_ipc !== null){
-                        electron_ipc.on('python_bridge', function (evt, message) {
-                            let python_call_object = pyhtmlgui._create_python_call_obj("python_bridge", [message], skip_results = true);
-                            pyhtmlgui._websocket.send(pyhtmlgui._toJSON(python_call_object));
-                        });
-                    }
-                    pyhtmlgui._ping()
                 },
 
                 _ping: function() {
@@ -96,47 +85,26 @@
                     pyhtmlgui._websocket.onmessage = function (e) {
                         let message = JSON.parse(e.data);
                         if(message.hasOwnProperty('call') ) {
-                            if(message.name.startsWith("electron.")){
-                                if(electron_ipc === null){
-                                    console.error("No electron IPC available, are you sure i am launched in electron?");
-                                }else{
-                                    electron_ipc.invoke('call', message.name.substring(9), message.args).then(
-                                        function(return_val){
-                                            if(message.skip_results !== true){
-                                                return_data = {'return': message.call };
-                                                if(return_val.value !== undefined){  return_data["value"] = return_val.value; }
-                                                if(return_val.error !== undefined){
-                                                    return_data["error"] = return_val.error;
-                                                    console.error( return_val.error);
-                                                }
-                                                pyhtmlgui._websocket.send(pyhtmlgui._toJSON(return_data));
-                                            }
-                                        }
-                                    );
-                                }
+                            let name_parts = message.name.split(".");
+                            let function_name = name_parts.pop()
+                            let obj = window;
+                            let return_data = null;
+                            for(var i = 0; i < name_parts.length; i++) {
+                                obj = obj[name_parts[i]];
+                            }
+                            if(obj[function_name] === undefined){
+                                return_data = {'return': message.call, 'error': "No javascript function called '"+message.name+"'"};
+                                console.error(return_data.error);
                             }else{
-                                let name_parts = message.name.split(".");
-                                let function_name = name_parts.pop()
-                                let obj = window;
-                                for(var i = 0; i < name_parts.length; i++) {
-                                    obj = obj[name_parts[i]];
+                                try {
+                                  return_data =  {'return': message.call, 'value':  obj[function_name](...message.args)};
+                                }catch (e) {
+                                  return_data =  {'return': message.call, 'error': "Failed to execute '" + message.name + "'\n" + e.stack }
+                                  console.error(return_data.error);
                                 }
-                                let return_data = null;
-                                if(obj[function_name] === undefined){
-                                    return_data = {'return': message.call, 'error': "No javascript function called '"+message.name+"'"};
-                                    console.error(return_data.error);
-                                }else{
-                                    try {
-                                      return_data =  {'return': message.call, 'value':  obj[function_name](...message.args)};
-                                    }catch (e) {
-                                      return_data =  {'return': message.call, 'error': "Failed to execute '" + message.name + "'\n" + e.stack }
-                                      console.error(return_data.error);
-                                    }
-                                }
-                                if(message.skip_results !== true){
-                                    pyhtmlgui._websocket.send(pyhtmlgui._toJSON(return_data));
-                                }
-
+                            }
+                            if(message.skip_results !== true){
+                                pyhtmlgui._websocket.send(pyhtmlgui._toJSON(return_data));
                             }
                         } else if(message.hasOwnProperty('return')) {
                             // Python returning a value to us
@@ -173,10 +141,7 @@
 
                 _create_python_call_obj: function(py_function_name, args, skip_results) {
                     let arg_array = [];
-                    for(let i = 0; i < args.length; i++){
-                        arg_array.push(args[i]);
-                    }
-
+                    for(let i = 0; i < args.length; i++){ arg_array.push(args[i]); }
                     let call_id = (pyhtmlgui._call_number += 1);
                     let to_delete = call_id - 100;  // remove old function references, this may not be needed, because it should be removed on return from python, but in case of error it may stay forever otherwise
                     delete pyhtmlgui._call_return_callbacks[to_delete];
@@ -187,11 +152,9 @@
                     }
                     return pycall;
                 },
-
                 _toJSON: function(obj) {
                     return JSON.stringify(obj, (k, v) => v === undefined ? null : v);
                 },
-
                 _getUrlParameter: function(sParam) {
                     var sPageURL = window.location.search.substring(1), sURLVariables = sPageURL.split('&'), sParameterName, i;
                     for (i = 0; i < sURLVariables.length; i++) {
@@ -257,7 +220,6 @@
             }
             pyhtmlgui._init();
 
-
         </script>
 
         {% block head_scripts %}{% endblock %}
@@ -268,7 +230,6 @@
 
     </head>
 
-    <body id="pyHtmlGuiBody">
-    </body>
+    <body id="pyHtmlGuiBody"></body>
 
 </html>

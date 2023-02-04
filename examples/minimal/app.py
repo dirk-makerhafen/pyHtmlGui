@@ -50,5 +50,6 @@ if __name__ == "__main__":
         app_instance = CounterApp(),
         view_class   = CounterAppView,
         auto_reload  = True, # edit templates while frontend is active!
+        listen_port=23452,
     )
     gui.start(show_frontend=True, block=True)

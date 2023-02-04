@@ -6,7 +6,8 @@ requires = [
     "jinja2",
     "flask",
     "flask-sock",
-    "werkzeug"
+    "werkzeug",
+    "atomics",
 ]
 build-backend = "setuptools.build_meta"
 

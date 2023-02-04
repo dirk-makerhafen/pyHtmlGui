@@ -132,7 +132,7 @@ app/    <- App logic
 views/  <- Python views
   appView.py
 templates/      <- Template files
-  base.html     <- Extend pyHtmlGuiBase.html from pyhtmlgui assets/templates/
+  base.html     <- Extend pyHtmlGuiBase.html from pyhtmlgui/templates/
   appView.html  <- TEMPLATE_FILE for appView class
 static/         <- Static content, add what you need
   css/app.css
@@ -140,7 +140,7 @@ static/         <- Static content, add what you need
 run.py
 ```
 
-JS/CSS files are included by the apps base template. By default this is *pyHtmlGuiBase.html* from *pyhtmlgui/assets/templates*.
+JS/CSS files are included by the apps base template. By default this is *pyHtmlGuiBase.html* from *pyhtmlgui/templates*.
 To extend this file and load your custom css/js, create a html file in your template dir and set matching options when initializing PyHtmlGui.
 
 *templates/base.html*
@@ -282,7 +282,7 @@ Additional options can be passed to the PyHtmlGui constructor as keyword argumen
   - **template_dir**: 
         Templates used in views go here *Default: `''`*
   - **base_template**: 
-        A file in *template_dir* extending pyHtmlGui/assets/templates/pyHtmlGuiBase.html,  *Default: `None`*
+        A file in *template_dir* extending pyHtmlGui/templates/pyHtmlGuiBase.html,  *Default: `None`*
   - **on_view_connected**: 
         This Callback function is called when a frontend connects via websocket. Arguments passed: "nr of view instances", "nr of websocket connections" *Default: `None`*
   - **on_view_disconnected**: 
@@ -294,7 +294,7 @@ Additional options can be passed to the PyHtmlGui constructor as keyword argumen
   - **listen_host**: 
         A string specifying what hostname to use for the server. *Default: `'localhost'`)*   
   - **listen_port**:
-        An int specifying what port to use for the server.  *Default: `8000`*.    
+        An int specifying what port to use for the server.  *Default: `0`, automatic*.    
   - **shared_secret**: 
         Add a security token to prevent unauthorized access to the webserver, use "" to automatically generate internally, None to disable token *Default: `None`*.
   - **auto_reload**: 

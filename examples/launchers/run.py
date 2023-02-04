@@ -88,8 +88,8 @@ if __name__ == "__main__":
     guiservice = PyHtmlGui(
         app_instance = applogic,
         view_class   = CounterAppView,
-        listen_port=8001,
     )
+
 
     if mode == "service": # start no gui, only run service
         print("Starting gui at %s" % guiservice.get_url())
