@@ -87,10 +87,15 @@ class BallView(PyHtmlView):
             self.direction_y *= -1
 
         if self.is_visible:
-            # fast frontend update via direct js call
+            # this is the normal way to update your element:
+            # self.update()
+            # however, we want thousands of updates per seconds,
+            # so we can optimise this by directly moving the element instead rerendering it.
+
             js = 'item = document.getElementById(args.uid);'
             js += 'item.style.left = args.posx + "%";'
             js += 'item.style.top  = args.posy + "%";'
             self.eval_javascript(js, skip_results=True, uid=self.uid, posx=self.position_x, posy=self.position_y)
+
             # or even faster on the browser side, without eval by writing the js function in advance, see static/js/app.js
             #self.call_javascript("update_balls",[self.uid, self.position_x, self.position_y], skip_results=True)

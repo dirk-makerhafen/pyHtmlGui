@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import time
 import typing
 import weakref
@@ -34,15 +33,15 @@ class PyHtmlView:
         self._instance = parent if type(parent) == PyHtmlGuiInstance else parent._instance
         self._was_rendered = False
         self._last_rendered = 0
-        self._observables = []
+        self._observables = ObservableMappings()
         self._children = weakref.WeakSet()
         self._subject = None  # this is replace for a short time on render by the actual resolved object
 
         if self._on_subject_updated is not None: # by default we observe the subject
             try:
                 self.add_observable(self.subject)
-            except Exception:
-                logging.warning("object type '%s' can not be observed" % type(subject))
+            except Exception as e:
+                logging.warning("object type '%s' can not be observed, %s" % (type(subject),e))
 
     @property
     def subject(self):
@@ -69,14 +68,14 @@ class PyHtmlView:
         if self._subject is None:  # Observed object died before render
             return None
 
+        if self.is_visible is False:
+            self.set_visible(True)
+
         for child in self._children:
             try:
                 child._was_rendered = False
             except:
                 pass
-
-        if self.is_visible is False:
-            self.set_visible(True)
 
         try:
             html = self._instance.get_template(self).render({"pyview": self})
@@ -164,29 +163,20 @@ class PyHtmlView:
         """
         Set component and childens visibility, components that are not visible get their events detached
         """
-
         if self.is_visible == visible:
             return
 
         if visible is False:
             self.is_visible = False
-            for observable, target in self._observables:
+            self._observables.disable()
+            for child in self._children:
                 try:
-                    observable().detach_observer(target())  # resolve weak references
-                except Exception:
-                    pass
-            for i in range(len(self._children)):
-                try:
-                    self._children[i].set_visible(False)
+                    child.set_visible(False)
                 except:
                     pass
         else:
             self.is_visible = True
-            for observable, target in self._observables:
-                try:
-                    observable().attach_observer(target())  # resolve weak references
-                except Exception:
-                    pass
+            self._observables.enable()
 
     def call_javascript(self, js_function_name, args=None, skip_results=False):
         """
@@ -225,31 +215,14 @@ class PyHtmlView:
             pass
 
     def add_observable(self, subject: Observable, target_function: typing.Callable = None) -> None:
-        try:
-            if not callable(subject.attach_observer) or not callable(subject.detach_observer):
-                raise Exception("object type '%s' can not be observed" % type(subject))
-        except Exception:
-            raise Exception("object type '%s' can not be observed" % type(subject))
         if target_function is None:
             target_function = self._on_subject_updated
-
-        if type(subject) != weakref.ref:
-            subject = weakref.ref(subject)
-        if type(target_function) != weakref.WeakMethod:
-            target_function = weakref.WeakMethod(target_function)
-        self._observables.append([subject, target_function])
+        self._observables.add(subject,target_function)
 
     def remove_observable(self, subject: Observable, target_function: typing.Callable = None) -> None:
         if target_function is None:
             target_function = self._on_subject_updated
-        to_remove = []
-        for e in self._observables:
-            e_subject, e_target_function = e
-            if subject == e_subject():
-                if target_function is None or target_function == e_target_function():
-                    to_remove.append(e)
-        for e in to_remove:
-            self._observables.remove(e)
+        self._observables.remove(subject, target_function)
 
     def set_autoupdate_interval(self, interval):
         if interval is not None and interval < 1:
@@ -259,3 +232,75 @@ class PyHtmlView:
             self._instance._add_polling_child(self)
         else:
             self._instance._remove_polling_child(self)
+
+
+class ObservableMappings():
+    def __init__(self):
+        self.mappings = []
+
+    def add(self, subject, target):
+        try:
+            if not callable(subject.attach_observer) or not callable(subject.detach_observer):
+                raise Exception("object type '%s' can not be observed" % type(subject))
+        except Exception:
+            raise Exception("object type '%s' can not be observed" % type(subject))
+        self.mappings.append(ObservableMapping(self, subject, target))
+
+    def get(self, subject, target):
+        for mapping in self.mappings:
+            try:
+                if subject == mapping.observable():
+                    if target is None or target == mapping.function():
+                        return mapping
+            except:
+                pass
+        return None
+
+    def remove(self, subject, target):
+        mapping = self.get(subject, target)
+        if mapping is not None:
+            try:
+                mapping.disable()
+                self.mappings.remove(mapping)
+            except:
+                pass
+
+    def enable(self):
+        for m in self.mappings:
+            m.enable()
+
+    def disable(self):
+        for m in self.mappings:
+            m.disable()
+
+    def _child_died(self, child):
+        try:
+            self.mappings.remove(child)
+        except:
+            pass
+
+
+class ObservableMapping():
+    def __init__(self, parent, subject, target):
+        self.parent = parent
+        self.subject = weakref.ref(subject, self._on_subject_died)
+        self.target = weakref.WeakMethod(target, self._on_target_died)
+
+    def enable(self):
+        try: # objects might die on us
+            self.subject().attach_observer(self.target())
+        except:
+            pass
+
+    def disable(self):
+        try:  # objects might die on us
+            self.subject().detach_observer(self.target())
+        except:
+         pass
+
+    def _on_subject_died(self, *args):
+        self.parent._child_died(self)
+
+    def _on_target_died(self, *args):
+        self.parent._child_died(self)
+
