@@ -8,7 +8,6 @@ from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtWidgets import *
 from PyQt5.QtWebEngineWidgets import *
 from pyhtmlgui import Observable
-
 QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)  # enable highdpi scaling
 QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)  # use highdpi icons
 
@@ -22,6 +21,20 @@ if sys.platform == "darwin":
     NSApplicationActivationPolicyAccessory = 1
     NSApplicationActivationPolicyProhibited = 2
 
+
+
+ERROR_PAGE = '''
+ <div style="text-align:center;color:gray">
+    <h3>
+        <br>
+        failed to load app window
+        <br>
+        :(  
+        <br>
+        retrying in a few seconds
+    </h3>
+</div>
+'''
 
 class PyHtmlQtApp(QApplication):
     def __init__(self, icon_path= None ):
@@ -146,11 +159,11 @@ class PyHtmlQtSimpleTray(GenericTray):
 
 
 class PyHtmlQtTray(GenericTray):
-    def __init__(self, pyHtmlQtApp, url, size, icon_path, keep_connected_on_close = True):
+    def __init__(self, pyHtmlQtApp, url, size, icon_path, keep_connected_on_close = True, error_page=""):
         super().__init__(pyHtmlQtApp, icon_path)
         pyHtmlQtApp.on_about_to_quit_event.attach_observer(self.close)
 
-        self._webWidget = PyHtmlWebWidget(url, size=size)
+        self._webWidget = PyHtmlWebWidget(url, size=size, error_page= error_page)
         self._trayAction = QWidgetAction(self._tray)
         self._trayAction.setDefaultWidget(self._webWidget)
         self._menu.addAction(self._trayAction)
@@ -181,7 +194,7 @@ class PyHtmlQtTray(GenericTray):
 
 
 class PyHtmlQtWindow():
-    def __init__(self, pyHtmlQtApp, url, size, title, icon_path=None, keep_connected_on_close = False, keep_connected_on_minimize = True):
+    def __init__(self, pyHtmlQtApp, url, size, title, icon_path=None, keep_connected_on_close = False, keep_connected_on_minimize = True, error_page=""):
         self._pyHtmlQtApp = pyHtmlQtApp
         pyHtmlQtApp.on_about_to_quit_event.attach_observer(self.close)
 
@@ -189,7 +202,7 @@ class PyHtmlQtWindow():
         self.on_show_event = Observable()
         self.on_minimized_event = Observable()
 
-        self._webWidget = PyHtmlWebWidget(url)
+        self._webWidget = PyHtmlWebWidget(url, error_page=error_page)
         self._qMainWindow = ExtendedQMainWindow(self) # you could also let this class directly subclass QMainWindow, but then PyHtmlQtWindow will expose a s*load of confusing qt functions from QMainWindow
         self._qMainWindow.resize(size[0], size[1])
         self._qMainWindow.setFocusPolicy(Qt.StrongFocus)
@@ -266,10 +279,14 @@ class PyHtmlQtWindow():
 
 
 class PyHtmlWebWidget(QWidget):
-    def __init__(self, url, size=None):
+    def __init__(self, url, size=None, error_page = ""):
         super().__init__()
         self.url  = url
         self._current_url = None
+        self._page_loaded = False
+        self._error_page = error_page
+        if self._error_page == "":
+            self._error_page = ERROR_PAGE
 
         self.web = QWebEngineView(parent=self)
         if size is not None:
@@ -277,6 +294,7 @@ class PyHtmlWebWidget(QWidget):
 
         self.profile = QWebEngineProfile(parent= self) # create a seperate profile for earch webengine, otherwise QWebEngineViews will load only the first loaded url in all view.
         self.web.setPage(QWebEnginePage(self.profile, self.web))
+        self.web.loadFinished.connect(self._on_page_loaded)
         self.web.load(QUrl("about:blank"))
 
         self.channel = QWebChannel(parent=self.web)
@@ -291,14 +309,20 @@ class PyHtmlWebWidget(QWidget):
         self.layout.setRowStretch(0, 0)
         self.setLayout(self.layout)
 
+        self._page_reload_timer = QTimer()
+        self._page_reload_timer.timeout.connect(self.load_page)
+
     def load_page(self):
+        self._page_reload_timer.stop()
         if self._current_url != self.url:
             self._current_url = self.url
+            self._page_loaded = False
             self.web.load(QUrl(self.url))
 
     def unload_page(self):
         if self._current_url != None:
             self._current_url = None
+            self._page_loaded = False
             self.web.load(QUrl("about:blank"))
 
     def addJavascriptFunction(self, name, target):
@@ -313,6 +337,26 @@ class PyHtmlWebWidget(QWidget):
         else:
             self.web.page().runJavaScript(javascript, callback)
 
+    def _on_page_loaded(self, success):
+        if self._current_url is not None:
+            if success is True:
+                self.web.page().toHtml(self._after_page_loaded)
+            else:
+                self._page_loaded = False
+                self._on_pageload_failed()
+
+    def _after_page_loaded(self, html):
+        self._page_loaded = "pyhtmlgui" in html
+        if self._page_loaded is False:
+            self._on_pageload_failed()
+
+    def _on_pageload_failed(self):
+        self._page_reload_timer.stop()
+        if self._current_url is not None:
+            self._current_url = None
+            if self._error_page is not None:
+                self.web.page().setHtml(self._error_page)
+            self._page_reload_timer.start(3000)
 
 class ExtendedQMainWindow(QMainWindow):
     def __init__(self, pyHtmlQtWindow):
