@@ -30,7 +30,6 @@ class PyHtmlQtApp(QApplication):
         self._icon_cache = {}
         self._current_icon = None
         self.set_icon(icon_path)
-
         self.on_about_to_quit_event = Observable()
         self.on_activated_event = Observable()
         self.aboutToQuit.connect(self.on_about_to_quit_event.notify_observers)
@@ -39,6 +38,7 @@ class PyHtmlQtApp(QApplication):
         self.exec_()
 
     def stop(self):
+        self.on_about_to_quit_event.notify_observers() # notify here, because tray does not hide after app quit, so we need to notify them
         self.quit()
 
     def set_icon(self, path):
@@ -84,9 +84,12 @@ class GenericTray():
         self.on_closed_event = Observable()
         self.on_show_event = Observable()
 
+        self.menu_is_open = False
         self._tray.activated.connect(self._right_or_left_click)
         self._menu.aboutToHide.connect(self.on_closed_event.notify_observers) # https://doc.qt.io/qt-5/macos-issues.html#menu-actions
         self._menu.aboutToShow.connect(self.on_show_event.notify_observers)
+        self.on_show_event.attach_observer(self._menu_shown)
+        self.on_closed_event.attach_observer(self._menu_hidden)
 
     def show(self):
         self._tray.show()
@@ -108,8 +111,15 @@ class GenericTray():
         elif reason == QSystemTrayIcon.ActivationReason.Context:
             self.on_right_clicked.notify_observers()
 
+    def _menu_shown(self):
+        self.menu_is_open = True
+
+    def _menu_hidden(self):
+        self.menu_is_open = False
+
 
 class PyHtmlQtSimpleTray(GenericTray):
+
     def addAction(self, name_or_names, target):
         if type(name_or_names) == str:
             name_or_names = [ name_or_names]
@@ -138,6 +148,8 @@ class PyHtmlQtSimpleTray(GenericTray):
 class PyHtmlQtTray(GenericTray):
     def __init__(self, pyHtmlQtApp, url, size, icon_path, keep_connected_on_close = True):
         super().__init__(pyHtmlQtApp, icon_path)
+        pyHtmlQtApp.on_about_to_quit_event.attach_observer(self.close)
+
         self._webWidget = PyHtmlWebWidget(url, size=size)
         self._trayAction = QWidgetAction(self._tray)
         self._trayAction.setDefaultWidget(self._webWidget)
@@ -147,6 +159,16 @@ class PyHtmlQtTray(GenericTray):
             self.on_closed_event.attach_observer(self._webWidget.unload_page)
         else:
             self._webWidget.load_page() # load page now if it should stay active in background
+
+    def hide(self):
+        if self.menu_is_open is True:
+            self._trayAction.trigger()  # on osx, if tray is in focus app will not exit, so trigger trayAction to hide it.
+        super(PyHtmlQtTray, self).hide()
+
+    def close(self):
+        if self.menu_is_open is True:
+            self._trayAction.trigger()  # on osx, if tray is in focus app will not exit, so trigger trayAction to hide it.
+        super(PyHtmlQtTray, self).close()
 
     def addJavascriptFunction(self, name, target):
         self._webWidget.addJavascriptFunction(name, target)
@@ -161,6 +183,7 @@ class PyHtmlQtTray(GenericTray):
 class PyHtmlQtWindow():
     def __init__(self, pyHtmlQtApp, url, size, title, icon_path=None, keep_connected_on_close = False, keep_connected_on_minimize = True):
         self._pyHtmlQtApp = pyHtmlQtApp
+        pyHtmlQtApp.on_about_to_quit_event.attach_observer(self.close)
 
         self.on_closed_event = Observable()
         self.on_show_event = Observable()
