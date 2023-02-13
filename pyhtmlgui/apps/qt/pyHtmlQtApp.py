@@ -22,19 +22,50 @@ if sys.platform == "darwin":
     NSApplicationActivationPolicyProhibited = 2
 
 
-
-ERROR_PAGE = '''
- <div style="text-align:center;color:gray">
-    <h3>
-        <br>
-        failed to load app window
-        <br>
-        :(  
-        <br>
-        retrying in a few seconds
-    </h3>
-</div>
+DEFAULT_ERROR_PAGE = '''
+    <div style="text-align:center;color:gray">
+        <h3>
+            <br><br>
+            failed to load app window <br><br>
+            :( <br><br>
+            retrying in a few seconds <br> <br>
+            <button style="cursor: pointer;webkit-user-select: none;user-select: none;border: 1px solid;border-radius: 6px;line-height: 20px;font-size:14px;" 
+                onclick="pyhtmlapp.__default_exit_qtapp()">EXIT NOW
+            </button>   
+        </h3>
+    </div>
 '''
+
+QT_WEBCHANNEL_JS = '''
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script>
+        let pyhtmlqtChannel = null;
+        let pyhtmlapp = null;
+        if(typeof QWebChannel !== "undefined"){
+            pyhtmlapp = new Proxy(new Object(), {
+                get(target, name) {
+                    return function(...args) {
+                        return new Promise((resolve, reject) => {
+                            args_str = JSON.stringify(args, (k, v) => v === undefined ? null : v);
+                            pyhtmlqtChannel.call(name, args_str, (result) => {
+                                var r = JSON.parse(result);
+                                if(r.result !== undefined){
+                                    resolve(r);
+                                }else{
+                                    console.error(r.exception)
+                                }
+                            });
+                        });
+                    }
+                }
+            });
+            new QWebChannel(qt.webChannelTransport, function (channel) {
+                pyhtmlqtChannel = channel.objects.pyhtmlapp;
+            });
+        }
+    </script>
+'''
+
 
 class PyHtmlQtApp(QApplication):
     def __init__(self, icon_path= None ):
@@ -97,7 +128,7 @@ class GenericTray():
         self.on_closed_event = Observable()
         self.on_show_event = Observable()
 
-        self.menu_is_open = False
+        self._menu_is_open = False
         self._tray.activated.connect(self._right_or_left_click)
         self._menu.aboutToHide.connect(self.on_closed_event.notify_observers) # https://doc.qt.io/qt-5/macos-issues.html#menu-actions
         self._menu.aboutToShow.connect(self.on_show_event.notify_observers)
@@ -125,14 +156,13 @@ class GenericTray():
             self.on_right_clicked.notify_observers()
 
     def _menu_shown(self):
-        self.menu_is_open = True
+        self._menu_is_open = True
 
     def _menu_hidden(self):
-        self.menu_is_open = False
+        self._menu_is_open = False
 
 
 class PyHtmlQtSimpleTray(GenericTray):
-
     def addAction(self, name_or_names, target):
         if type(name_or_names) == str:
             name_or_names = [ name_or_names]
@@ -172,14 +202,15 @@ class PyHtmlQtTray(GenericTray):
             self.on_closed_event.attach_observer(self._webWidget.unload_page)
         else:
             self._webWidget.load_page() # load page now if it should stay active in background
+        self.addJavascriptFunction("__default_exit_qtapp", self._pyHtmlQtApp.stop)
 
     def hide(self):
-        if self.menu_is_open is True:
+        if self._menu_is_open is True:
             self._trayAction.trigger()  # on osx, if tray is in focus app will not exit, so trigger trayAction to hide it.
         super(PyHtmlQtTray, self).hide()
 
     def close(self):
-        if self.menu_is_open is True:
+        if self._menu_is_open is True:
             self._trayAction.trigger()  # on osx, if tray is in focus app will not exit, so trigger trayAction to hide it.
         super(PyHtmlQtTray, self).close()
 
@@ -221,6 +252,7 @@ class PyHtmlQtWindow():
         if keep_connected_on_minimize is False:
             self.on_minimized_event.attach_observer(self._webWidget.unload_page)
         self.on_show_event.attach_observer(self._webWidget.load_page)
+        self.addJavascriptFunction("__default_exit_qtapp", self._pyHtmlQtApp.stop)
 
     def show(self):
         self._qMainWindow.showNormal()
@@ -232,6 +264,12 @@ class PyHtmlQtWindow():
 
     def minimize(self):
         self._qMainWindow.showMinimized()
+
+    def maximize(self):
+        self._qMainWindow.showMaximized()
+
+    def fullscreen(self):
+        self._qMainWindow.showFullScreen()
 
     def close(self):
         self._qMainWindow.close()
@@ -286,7 +324,9 @@ class PyHtmlWebWidget(QWidget):
         self._page_loaded = False
         self._error_page = error_page
         if self._error_page == "":
-            self._error_page = ERROR_PAGE
+            self._error_page = DEFAULT_ERROR_PAGE
+        if self._error_page is not None:
+            self._error_page = self._error_page + QT_WEBCHANNEL_JS
 
         self.web = QWebEngineView(parent=self)
         if size is not None:
@@ -346,7 +386,7 @@ class PyHtmlWebWidget(QWidget):
                 self._on_pageload_failed()
 
     def _after_page_loaded(self, html):
-        self._page_loaded = "pyhtmlgui" in html
+        self._page_loaded = html != "<html><head></head><body></body></html>"
         if self._page_loaded is False:
             self._on_pageload_failed()
 
@@ -357,6 +397,7 @@ class PyHtmlWebWidget(QWidget):
             if self._error_page is not None:
                 self.web.page().setHtml(self._error_page)
             self._page_reload_timer.start(3000)
+
 
 class ExtendedQMainWindow(QMainWindow):
     def __init__(self, pyHtmlQtWindow):

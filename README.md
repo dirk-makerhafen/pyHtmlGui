@@ -190,7 +190,7 @@ In some cases, you might simply use a browser to access your gui.
 
 However, at some point you might want to create a native app, maybe a tray icon and all the normal app stuff.
  
-To save you from writing ~350 lines of annoying Qt code to set this all up, pyHmlGui provides some convience classes.  
+To save you from writing ~450 lines of annoying Qt code to set this all up, pyHmlGui provides some convience classes.  
 They should fit many needs, but if you need more, you can simply extend or copy/paste them as a great starting point.
 
 PyHtmlGui native app capabilitys depend on [PyQt](https://pypi.org/project/PyQt5/) and
@@ -558,111 +558,4 @@ time, and some magic function reference has been created in the background to ac
 <button onclick="pyhtmlgui.call(24325642347682, 2).then(function(e){alert(e);})"></button>
 ```
 After this, clicking the button will show "3"
-
-
-
-
-### Using from inside Electron (DEPRECATED) 
-#### This will be removed soon
-Make electron launch your python app so you can create a shippable electron executable
-what runs your python application logic + views!
-Full code for the example below is available [on github](https://github.com/dirk-makerhafen/pyHtmlGui/tree/master/examples/electron) 
-
-Electron directory Structure
-```
-app.py  <- Your python app logic
-main.js <- Minimal electron main
-package.json <- Electron package.json + shared pyhtmlgui config
-pyhtmlgui.js <- Copy of assets/electron/pyhtmlgui.js
-```
-
-While you can download *main.js*, *package.json*, *pyhtmlgui.js* from github, you can also receive them from PyHtmlGui if its installed via pip.
-Create a minimal PyHtmlGui instance, set **`electron_app_dir`** to your target folder. Running this script will copy
- *package.json*, *pyhtmlgui.js* and an example  *main.js* to your **`electron_app_dir`**, if they don't exist. 
-
-```
-from pyhtmlgui import PyHtmlGui
-PyHtmlGui(None, None, electron_app_dir = "mydir")
-```
-
-*package.json*, with additional options for PyHtmlGui.
-```
-{
-  "name": "Example App",
-  "main": "main.js",
-  "PYHTMLGUI_HOST": "127.0.0.1",
-  "PYHTMLGUI_PORT": 8023,
-  "PYHTMLGUI_SECRET" : "shared_secret_replace_me",
-  "PYHTMLGUI_CMD" : "python",
-  "PYHTMLGUI_CMD_ARGS" : "app.py"
-}
-```
-
-*main.js* (shortend, full version in examples/electron/main.js)
-```javascript
-const pyhtmlgui = require('./pyhtmlgui.js');
-
-pyhtmlgui.start(); // start python process early
-
-app.on('ready', () => {
-  pyhtmlgui.init_ipc();
-  // TODO create window
-  mainWindow.loadURL(pyhtmlgui.get_start_url());
-})
-
-pyhtmlgui.add_public_functions({
-  exit: function (){
-    app.quit();
-    app.exit(0);
-  },
-  ping: function (){
-    return "Pong from electron";
-  }
-})
-```
-
-*app.py* is launched automatically from inside electrons main process. 
-Note the usage of **`self.call_javascipt("electron.ping")`**. 
-Javascript calls from python prefixed with **`electron.`** are automaticlly forwarded to functions declared 
-in electrons *main.js* via **`pyhtmlgui.add_public_functions(..).`**
-
-*app.py*
-```python
-import os, time, json
-from pyhtmlgui import PyHtmlGui, PyHtmlView, Observable
-
-class App(Observable): # empty app logic
-    pass
-
-class AppView(PyHtmlView):
-    TEMPLATE_STR = '''
-        <button onclick="pyview.ping_electron()">Ping electron process</button>   
-        <div id="electron_ping_result"></div>
-        <button onclick="pyview.exit()">Exit App</button>   
-    '''
-    def ping_electron(self):
-        self.call_javascript("electron.ping",[])(self._set_result)
-
-    def _set_result(self, values):
-        self.eval_javascript("document.getElementById('electron_ping_result').innerHTML = args.value", skip_results=True, value = json.dumps(values))
-
-    def exit(self):
-        self.call_javascript("electron.exit",[], skip_results=True) # close electron app, no results to receive
-        exit(0)
-
-if __name__ == "__main__":
-    package_json = json.loads(open(os.path.join(os.path.dirname(__file__), "package.json"), "r").read()) # so electron and we use the same values
-    gui = PyHtmlGui(
-        browser          = "electron",
-        app_instance     = App(),
-        view_class       = AppView,
-        listen_host      = package_json["PYHTMLGUI_HOST"],
-        listen_port      = package_json["PYHTMLGUI_PORT"],
-        shared_secret    = package_json["PYHTMLGUI_SECRET"],
-    )
-    gui.start(show_frontend=False, block=True)
-``` 
-
-
-
 

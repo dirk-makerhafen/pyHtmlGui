@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pyhtmlgui",
-    version="3.12",
+    version="3.14",
     author="Dirk Makerhafen",
     author_email="dirk@makerhafen.de",
     description="A Python library for building user interfaces",
