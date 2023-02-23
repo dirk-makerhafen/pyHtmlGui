@@ -7,14 +7,14 @@ class WeakFunctionReferences:
         self.references = {}
 
     def add(self, function: typing.Callable):
-        callback_id = hash(function) & 0xffffffffffffff
+        callback_id = ( id(function) ^ hash(function)) & 0xffffffffffffff
         if callback_id in self.references:
             return callback_id
         self.references[callback_id] = weakref.WeakMethod(function, self._create_delete_callback(callback_id))
         return callback_id
 
     def remove(self, function: typing.Callable):
-        del self.references[hash(function) & 0xffffffffffffff]
+        del self.references[( id(function) ^ hash(function)) & 0xffffffffffffff]
 
     def get(self, callback_id: int) -> typing.Callable:
         return self.references[callback_id]()
