@@ -1,15 +1,27 @@
 import json, sys
 import traceback
 import logging
-from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWebChannel import QWebChannel
-from PyQt5.QtWidgets import *
-from PyQt5.QtWebEngineWidgets import *
+
+
 from pyhtmlgui import Observable
-QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)  # enable highdpi scaling
-QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)  # use highdpi icons
+
+try:
+    from PyQt6 import QtWidgets, QtCore
+    from PyQt6.QtGui import *
+    from PyQt6.QtCore import *
+    from PyQt6.QtWebChannel import QWebChannel
+    from PyQt6.QtWidgets import *
+    from PyQt6.QtWebEngineWidgets import *
+    from PyQt6.QtWebEngineCore import QWebEngineProfile, QWebEnginePage
+except:
+    from PyQt5 import QtWidgets, QtCore
+    from PyQt5.QtGui import *
+    from PyQt5.QtCore import *
+    from PyQt5.QtWebChannel import QWebChannel
+    from PyQt5.QtWidgets import *
+    from PyQt5.QtWebEngineWidgets import *
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)  # enable highdpi scaling
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)  # use highdpi icons
 
 AppKit = None
 if sys.platform == "darwin":
@@ -79,7 +91,7 @@ class PyHtmlQtApp(QApplication):
         self.aboutToQuit.connect(self.on_about_to_quit_event.notify_observers)
 
     def run(self):
-        self.exec_()
+        self.exec()
 
     def stop(self):
         self.on_about_to_quit_event.notify_observers() # notify here, because tray does not hide after app quit, so we need to notify them
@@ -92,8 +104,9 @@ class PyHtmlQtApp(QApplication):
         self.setWindowIcon(self._icon_cache[path])
 
     def event(self, e):
-        if e.type() == QEvent.ApplicationActivate and e.spontaneous() is True:
-            self.on_activated_event.notify_observers()
+        if e.type() == QEvent.Type.ApplicationStateChange and e.spontaneous() is True:
+            if self.applicationState() == Qt.ApplicationState.ApplicationActive:
+                self.on_activated_event.notify_observers()
         return QApplication.event(self, e)
 
     def hide_osx_dock(self):
@@ -236,11 +249,11 @@ class PyHtmlQtWindow():
         self._webWidget = PyHtmlWebWidget(url, error_page=error_page)
         self._qMainWindow = ExtendedQMainWindow(self) # you could also let this class directly subclass QMainWindow, but then PyHtmlQtWindow will expose a s*load of confusing qt functions from QMainWindow
         self._qMainWindow.resize(size[0], size[1])
-        self._qMainWindow.setFocusPolicy(Qt.StrongFocus)
+        self._qMainWindow.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._qMainWindow.setWindowTitle(title)
         self._qMainWindow.setCentralWidget(self._webWidget)
         self._webWidget.setParent(self._qMainWindow)
-        self._menuBar = QMenuBar()
+        self._menuBar = QMenuBar(self._qMainWindow)
         self._menuBar._subitems = {} # qt also keep track of this, but this is easier for the addMenuButton and addMenuSeparator functions
         self._qMainWindow.setMenuBar(self._menuBar)
 
@@ -329,6 +342,7 @@ class PyHtmlWebWidget(QWidget):
             self._error_page = self._error_page + QT_WEBCHANNEL_JS
 
         self.web = QWebEngineView(parent=self)
+        self.web.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         if size is not None:
             self.web.setFixedSize(size[0], size[1])
 
@@ -337,19 +351,20 @@ class PyHtmlWebWidget(QWidget):
         self.web.loadFinished.connect(self._on_page_loaded)
         self.web.load(QUrl("about:blank"))
 
+
         self.channel = QWebChannel(parent=self.web)
         self._functionHandler = JavascriptFunctionHandler()
         self.channel.registerObject('pyhtmlapp', self._functionHandler)
         self.web.page().setWebChannel(self.channel)
 
-        self.layout = QGridLayout()
+        self.layout = QGridLayout(self)
         self.layout.addWidget(self.web, 0, 0)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
         self.layout.setRowStretch(0, 0)
         self.setLayout(self.layout)
 
-        self._page_reload_timer = QTimer()
+        self._page_reload_timer = QTimer(self)
         self._page_reload_timer.timeout.connect(self.load_page)
 
     def load_page(self):
