@@ -80,8 +80,9 @@ QT_WEBCHANNEL_JS = '''
 
 
 class PyHtmlQtApp(QApplication):
-    def __init__(self, icon_path= None ):
-        super(PyHtmlQtApp, self).__init__([])
+    def __init__(self, icon_path= None, arg=None ):
+        if arg == None: arg = []
+        super(PyHtmlQtApp, self).__init__(arg)
         self.setQuitOnLastWindowClosed(False)
         self._icon_cache = {}
         self._current_icon = None
